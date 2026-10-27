@@ -1,0 +1,13 @@
+Lumen bundles the following third-party software.
+
+libmpv (libmpv-2.dll)
+  The mpv media player library, built by the mpv-winbuild-cmake project
+  (https://github.com/shinchiro/mpv-winbuild-cmake). It statically includes
+  FFmpeg, libass, libplacebo and other libraries.
+  This build is distributed under the GNU General Public License. Source code:
+    mpv:            https://github.com/mpv-player/mpv
+    build recipes:  https://github.com/shinchiro/mpv-winbuild-cmake
+  See https://github.com/mpv-player/mpv/blob/master/Copyright for details.
+
+Rust crates (egui, eframe, winit, glow, rfd, windows-rs, serde, and their
+dependencies) are used under the MIT and/or Apache-2.0 licenses.

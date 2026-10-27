@@ -66,6 +66,22 @@ needs.
 Release builds have no console window. To see mpv's log, run a debug build
 (`cargo run`) or set `LUMEN_MPV_LOG=all=v`.
 
+## Installer (MSI)
+
+`scripts/build-msi.sh` cross-compiles `lumen.exe` from Linux and packages
+`dist/Lumen-<version>-x64.msi` with msitools' `wixl`. You need mingw-w64,
+msitools, 7z and the `x86_64-pc-windows-gnu` Rust target. The script fetches
+the latest libmpv from the official SourceForge mirror. The installer:
+
+- installs to `C:\Program Files\Lumen` for all users and adds a Start menu
+  shortcut;
+- adds Lumen to Explorer's "Open with" menu for common video and audio types,
+  without changing your current default player;
+- upgrades older versions in place. Uninstall it from Settings → Apps.
+
+The MSI isn't code-signed, so SmartScreen warns on first run. Choose
+**More info → Run anyway**.
+
 ## Linux
 
 Install `libmpv-dev`, or just `libmpv2`, then run `cargo run -- video.mp4`.

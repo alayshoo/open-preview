@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Lumen installer (WiX v3 schema). Built on Linux with msitools' wixl:
+    wixl -a x64 -D Version=0.1.0 -D BinDir=<dir with lumen.exe + libmpv-2.dll> -o Lumen.msi installer/lumen.wxs
+  It also builds with WiX Toolset v3 (candle/light) on Windows.
+-->
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+  <Product Id="*"
+           Name="Lumen"
+           Language="1033"
+           Version="$(var.Version)"
+           Manufacturer="Lumen"
+           UpgradeCode="A8C8B7BB-18A8-4C8C-AB37-9B97FBF0F645">
+
+    <Package InstallerVersion="500"
+             Compressed="yes"
+             InstallScope="perMachine"
+             Description="Lumen media player"
+             Comments="Modern video player built on libmpv" />
+
+    <MajorUpgrade DowngradeErrorMessage="A newer version of Lumen is already installed." />
+    <Media Id="1" Cabinet="lumen.cab" EmbedCab="yes" />
+
+    <Icon Id="LumenIcon" SourceFile="$(var.BinDir)/lumen.ico" />
+    <Property Id="ARPPRODUCTICON" Value="LumenIcon" />
+    <Property Id="ARPURLINFOABOUT" Value="https://mpv.io" />
+    <Property Id="ARPNOMODIFY" Value="1" />
+
+    <Directory Id="TARGETDIR" Name="SourceDir">
+      <Directory Id="ProgramFiles64Folder">
+        <Directory Id="INSTALLDIR" Name="Lumen">
+
+          <Component Id="MainExe" Guid="8073901B-2499-44A0-89D8-AE3527C960D7" Win64="yes">
+            <File Id="LumenExe" Name="lumen.exe" Source="$(var.BinDir)/lumen.exe" KeyPath="yes" />
+          </Component>
+
+          <Component Id="LibMpv" Guid="F4E7B960-13F2-459C-98D1-B5C3E5872EB0" Win64="yes">
+            <File Id="LibMpvDll" Name="libmpv-2.dll" Source="$(var.BinDir)/libmpv-2.dll" KeyPath="yes" />
+          </Component>
+
+          <Component Id="Notices" Guid="33FFEEB4-EA32-4403-88FA-89D595080504" Win64="yes">
+            <File Id="NoticesTxt" Name="THIRD-PARTY-NOTICES.txt" Source="$(var.BinDir)/THIRD-PARTY-NOTICES.txt" KeyPath="yes" />
+          </Component>
+
+          <!-- "Open with" integration. This lists Lumen as a choice for media files;
+               it never takes over existing default associations. -->
+          <Component Id="OpenWith" Guid="ACDA6EB7-4003-4F39-98FE-228E18F2BF49" Win64="yes">
+            <RegistryKey Root="HKLM" Key="Software\Classes\Lumen.Media">
+              <RegistryValue Type="string" Value="Lumen media file" KeyPath="yes" />
+              <RegistryValue Name="FriendlyTypeName" Type="string" Value="Media file" />
+            </RegistryKey>
+            <RegistryValue Root="HKLM" Key="Software\Classes\Lumen.Media\DefaultIcon" Type="string" Value="[INSTALLDIR]lumen.exe,0" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Lumen.Media\shell\open\command" Type="string" Value="&quot;[INSTALLDIR]lumen.exe&quot; &quot;%1&quot;" />
+
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\lumen.exe" Name="FriendlyAppName" Type="string" Value="Lumen" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\lumen.exe\DefaultIcon" Type="string" Value="[INSTALLDIR]lumen.exe,0" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\lumen.exe\shell\open\command" Type="string" Value="&quot;[INSTALLDIR]lumen.exe&quot; &quot;%1&quot;" />
+
+            <RegistryValue Root="HKLM" Key="Software\Classes\.mkv\OpenWithProgids" Name="Lumen.Media" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.mp4\OpenWithProgids" Name="Lumen.Media" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.m4v\OpenWithProgids" Name="Lumen.Media" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.avi\OpenWithProgids" Name="Lumen.Media" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.mov\OpenWithProgids" Name="Lumen.Media" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.webm\OpenWithProgids" Name="Lumen.Media" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.wmv\OpenWithProgids" Name="Lumen.Media" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.flv\OpenWithProgids" Name="Lumen.Media" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.ts\OpenWithProgids" Name="Lumen.Media" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.m2ts\OpenWithProgids" Name="Lumen.Media" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.mts\OpenWithProgids" Name="Lumen.Media" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.mpg\OpenWithProgids" Name="Lumen.Media" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.mpeg\OpenWithProgids" Name="Lumen.Media" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.ogv\OpenWithProgids" Name="Lumen.Media" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.3gp\OpenWithProgids" Name="Lumen.Media" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.mp3\OpenWithProgids" Name="Lumen.Media" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.flac\OpenWithProgids" Name="Lumen.Media" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.m4a\OpenWithProgids" Name="Lumen.Media" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.aac\OpenWithProgids" Name="Lumen.Media" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.ogg\OpenWithProgids" Name="Lumen.Media" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.opus\OpenWithProgids" Name="Lumen.Media" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.wav\OpenWithProgids" Name="Lumen.Media" Type="string" Value="" />
+          </Component>
+
+        </Directory>
+      </Directory>
+
+      <Directory Id="ProgramMenuFolder">
+        <Component Id="StartMenuShortcut" Guid="5839252A-EE62-4E56-B9D9-3B4ACDB2E0DD" Win64="yes">
+          <Shortcut Id="LumenShortcut"
+                    Name="Lumen"
+                    Description="Modern video player"
+                    Target="[INSTALLDIR]lumen.exe"
+                    WorkingDirectory="INSTALLDIR"
+                    Icon="LumenIcon" />
+          <RegistryValue Root="HKLM" Key="Software\Lumen" Name="StartMenuShortcut" Type="integer" Value="1" KeyPath="yes" />
+        </Component>
+      </Directory>
+    </Directory>
+
+    <Feature Id="Complete" Title="Lumen" Level="1">
+      <ComponentRef Id="MainExe" />
+      <ComponentRef Id="LibMpv" />
+      <ComponentRef Id="Notices" />
+      <ComponentRef Id="OpenWith" />
+      <ComponentRef Id="StartMenuShortcut" />
+    </Feature>
+  </Product>
+</Wix>
