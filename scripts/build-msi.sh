@@ -14,8 +14,8 @@ cargo build --release --target x86_64-pc-windows-gnu
 dll=${1:-}
 if [[ -z "$dll" ]]; then
     # Latest baseline x86_64 build from the official SourceForge mirror.
-    name=$(curl -fsSL "https://sourceforge.net/projects/mpv-player-windows/rss?path=/libmpv" \
-        | grep -oE 'mpv-dev-x86_64-[0-9]{8}-git-[0-9a-f]+\.7z' | head -1)
+    rss=$(curl -fsSL "https://sourceforge.net/projects/mpv-player-windows/rss?path=/libmpv")
+    name=$(grep -oE 'mpv-dev-x86_64-[0-9]{8}-git-[0-9a-f]+\.7z' <<<"$rss" | head -1)
     dl=target/libmpv/$name
     mkdir -p target/libmpv
     [[ -f "$dl" ]] || curl -fsSL -o "$dl" "https://sourceforge.net/projects/mpv-player-windows/files/libmpv/$name/download"
