@@ -1,8 +1,10 @@
 name: CI
 
 # Every push and pull request is linted. Every push also builds the Windows
-# installer and attaches it to the run; pushing a version tag (v0.3.0, matching
-# Cargo.toml) publishes it as a GitHub Release.
+# installer and attaches it to the run. A push to main whose Cargo.toml version
+# has no tag yet tags it (v0.3.0) and publishes the installer as a GitHub
+# Release, so bumping the version is all a release takes. Pushing a version tag
+# by hand publishes it the same way.
 on:
   push:
     branches: [main]
@@ -47,14 +49,24 @@ jobs:
       - run: rustup toolchain install || rustup show
       - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends mingw-w64 wixl msitools p7zip-full
       - uses: Swatinem/rust-cache@v2
-      - name: Check the tag matches Cargo.toml
-        if: startsWith(github.ref, 'refs/tags/v')
+      - name: Decide whether to release
+        id: release
         run: |
           version=$(grep -m1 '^version' Cargo.toml | cut -d'"' -f2)
-          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
-            echo "::error::Tag $GITHUB_REF_NAME doesn't match Cargo.toml version $version"
-            exit 1
+          tag="v$version"
+          if [ "$GITHUB_REF_TYPE" = tag ]; then
+            if [ "$tag" != "$GITHUB_REF_NAME" ]; then
+              echo "::error::Tag $GITHUB_REF_NAME doesn't match Cargo.toml version $version"
+              exit 1
+            fi
+            publish=true
+          elif [ "$GITHUB_REF_NAME" = main ] && [ -z "$(git ls-remote --tags origin "refs/tags/$tag")" ]; then
+            publish=true
+          else
+            publish=false
           fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "publish=$publish" >> "$GITHUB_OUTPUT"
       - name: Build the MSI
         run: scripts/build-msi.sh
       - uses: actions/upload-artifact@v5
@@ -62,9 +74,13 @@ jobs:
           name: open-preview-installer
           path: dist/*.msi
           if-no-files-found: error
+      # Creates the tag on this commit when it doesn't exist yet. Tags made with
+      # the workflow's token don't trigger another run, so nothing builds twice.
       - name: Publish the release
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: steps.release.outputs.publish == 'true'
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ steps.release.outputs.tag }}
+          target_commitish: ${{ github.sha }}
           files: dist/*.msi
           generate_release_notes: true
