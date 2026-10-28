@@ -66,6 +66,12 @@ mod win {
         static DPI_RECT: Cell<Option<RECT>> = const { Cell::new(None) };
     }
 
+    /// The main window, once `init` has seen it.
+    pub fn hwnd() -> Option<HWND> {
+        let hwnd = HWND(HWND_PTR.load(Ordering::Relaxed));
+        (!hwnd.is_invalid()).then_some(hwnd)
+    }
+
     pub fn init(window: &impl HasWindowHandle) {
         let Ok(handle) = window.window_handle() else { return };
         let RawWindowHandle::Win32(h) = handle.as_raw() else { return };

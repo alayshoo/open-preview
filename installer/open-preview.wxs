@@ -75,78 +75,312 @@
             <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe" Name="FriendlyAppName" Type="string" Value="Open Preview" KeyPath="yes" />
             <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\DefaultIcon" Type="string" Value="[INSTALLDIR]open-preview.exe,0" />
             <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\shell\open\command" Type="string" Value="&quot;[INSTALLDIR]open-preview.exe&quot; &quot;%1&quot;" />
-            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".mkv" Type="string" Value="" />
-            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".mp4" Type="string" Value="" />
-            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".m4v" Type="string" Value="" />
-            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".avi" Type="string" Value="" />
-            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".mov" Type="string" Value="" />
-            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".webm" Type="string" Value="" />
-            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".wmv" Type="string" Value="" />
-            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".flv" Type="string" Value="" />
-            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".ts" Type="string" Value="" />
-            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".m2ts" Type="string" Value="" />
-            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".mts" Type="string" Value="" />
-            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".mpg" Type="string" Value="" />
-            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".mpeg" Type="string" Value="" />
-            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".ogv" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".3g2" Type="string" Value="" />
             <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".3gp" Type="string" Value="" />
-            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".mp3" Type="string" Value="" />
-            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".flac" Type="string" Value="" />
-            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".m4a" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".3gp2" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".3gpp" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".amv" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".asf" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".avi" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".bik" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".divx" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".dv" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".dvr-ms" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".evo" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".f4v" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".flv" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".gxf" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".m1v" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".m2t" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".m2ts" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".m2v" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".m4v" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".mk3d" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".mkv" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".mov" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".mp4" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".mp4v" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".mpe" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".mpeg" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".mpg" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".mpv" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".mts" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".mxf" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".nsv" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".nut" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".nuv" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".ogm" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".ogv" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".ogx" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".qt" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".rm" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".rmvb" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".thp" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".tod" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".trp" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".ts" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".tts" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".vob" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".vro" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".webm" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".wm" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".wmv" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".wtv" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".y4m" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".3ga" Type="string" Value="" />
             <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".aac" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".ac3" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".adts" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".aif" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".aifc" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".aiff" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".amr" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".ape" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".au" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".awb" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".caf" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".dts" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".eac3" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".ec3" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".flac" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".gsm" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".m4a" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".m4b" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".mka" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".mlp" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".mp1" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".mp2" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".mp3" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".mpa" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".mpc" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".mpga" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".oga" Type="string" Value="" />
             <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".ogg" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".oma" Type="string" Value="" />
             <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".opus" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".qcp" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".ra" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".spx" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".tak" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".thd" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".tta" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".voc" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".w64" Type="string" Value="" />
             <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".wav" Type="string" Value="" />
-            <RegistryValue Root="HKLM" Key="Software\Classes\.mkv\OpenWithProgids" Name="OpenPreview.Video" Type="string" Value="" />
-            <RegistryValue Root="HKLM" Key="Software\Classes\.mp4\OpenWithProgids" Name="OpenPreview.Video" Type="string" Value="" />
-            <RegistryValue Root="HKLM" Key="Software\Classes\.m4v\OpenWithProgids" Name="OpenPreview.Video" Type="string" Value="" />
-            <RegistryValue Root="HKLM" Key="Software\Classes\.avi\OpenWithProgids" Name="OpenPreview.Video" Type="string" Value="" />
-            <RegistryValue Root="HKLM" Key="Software\Classes\.mov\OpenWithProgids" Name="OpenPreview.Video" Type="string" Value="" />
-            <RegistryValue Root="HKLM" Key="Software\Classes\.webm\OpenWithProgids" Name="OpenPreview.Video" Type="string" Value="" />
-            <RegistryValue Root="HKLM" Key="Software\Classes\.wmv\OpenWithProgids" Name="OpenPreview.Video" Type="string" Value="" />
-            <RegistryValue Root="HKLM" Key="Software\Classes\.flv\OpenWithProgids" Name="OpenPreview.Video" Type="string" Value="" />
-            <RegistryValue Root="HKLM" Key="Software\Classes\.ts\OpenWithProgids" Name="OpenPreview.Video" Type="string" Value="" />
-            <RegistryValue Root="HKLM" Key="Software\Classes\.m2ts\OpenWithProgids" Name="OpenPreview.Video" Type="string" Value="" />
-            <RegistryValue Root="HKLM" Key="Software\Classes\.mts\OpenWithProgids" Name="OpenPreview.Video" Type="string" Value="" />
-            <RegistryValue Root="HKLM" Key="Software\Classes\.mpg\OpenWithProgids" Name="OpenPreview.Video" Type="string" Value="" />
-            <RegistryValue Root="HKLM" Key="Software\Classes\.mpeg\OpenWithProgids" Name="OpenPreview.Video" Type="string" Value="" />
-            <RegistryValue Root="HKLM" Key="Software\Classes\.ogv\OpenWithProgids" Name="OpenPreview.Video" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".weba" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".wma" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".wv" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".it" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".mod" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".mptm" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".s3m" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".xm" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.3g2\OpenWithProgids" Name="OpenPreview.Video" Type="string" Value="" />
             <RegistryValue Root="HKLM" Key="Software\Classes\.3gp\OpenWithProgids" Name="OpenPreview.Video" Type="string" Value="" />
-            <RegistryValue Root="HKLM" Key="Software\Classes\.mp3\OpenWithProgids" Name="OpenPreview.Audio" Type="string" Value="" />
-            <RegistryValue Root="HKLM" Key="Software\Classes\.flac\OpenWithProgids" Name="OpenPreview.Audio" Type="string" Value="" />
-            <RegistryValue Root="HKLM" Key="Software\Classes\.m4a\OpenWithProgids" Name="OpenPreview.Audio" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.3gp2\OpenWithProgids" Name="OpenPreview.Video" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.3gpp\OpenWithProgids" Name="OpenPreview.Video" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.amv\OpenWithProgids" Name="OpenPreview.Video" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.asf\OpenWithProgids" Name="OpenPreview.Video" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.avi\OpenWithProgids" Name="OpenPreview.Video" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.bik\OpenWithProgids" Name="OpenPreview.Video" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.divx\OpenWithProgids" Name="OpenPreview.Video" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.dv\OpenWithProgids" Name="OpenPreview.Video" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.dvr-ms\OpenWithProgids" Name="OpenPreview.Video" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.evo\OpenWithProgids" Name="OpenPreview.Video" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.f4v\OpenWithProgids" Name="OpenPreview.Video" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.flv\OpenWithProgids" Name="OpenPreview.Video" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.gxf\OpenWithProgids" Name="OpenPreview.Video" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.m1v\OpenWithProgids" Name="OpenPreview.Video" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.m2t\OpenWithProgids" Name="OpenPreview.Video" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.m2ts\OpenWithProgids" Name="OpenPreview.Video" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.m2v\OpenWithProgids" Name="OpenPreview.Video" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.m4v\OpenWithProgids" Name="OpenPreview.Video" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.mk3d\OpenWithProgids" Name="OpenPreview.Video" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.mkv\OpenWithProgids" Name="OpenPreview.Video" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.mov\OpenWithProgids" Name="OpenPreview.Video" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.mp4\OpenWithProgids" Name="OpenPreview.Video" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.mp4v\OpenWithProgids" Name="OpenPreview.Video" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.mpe\OpenWithProgids" Name="OpenPreview.Video" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.mpeg\OpenWithProgids" Name="OpenPreview.Video" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.mpg\OpenWithProgids" Name="OpenPreview.Video" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.mpv\OpenWithProgids" Name="OpenPreview.Video" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.mts\OpenWithProgids" Name="OpenPreview.Video" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.mxf\OpenWithProgids" Name="OpenPreview.Video" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.nsv\OpenWithProgids" Name="OpenPreview.Video" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.nut\OpenWithProgids" Name="OpenPreview.Video" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.nuv\OpenWithProgids" Name="OpenPreview.Video" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.ogm\OpenWithProgids" Name="OpenPreview.Video" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.ogv\OpenWithProgids" Name="OpenPreview.Video" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.ogx\OpenWithProgids" Name="OpenPreview.Video" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.qt\OpenWithProgids" Name="OpenPreview.Video" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.rm\OpenWithProgids" Name="OpenPreview.Video" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.rmvb\OpenWithProgids" Name="OpenPreview.Video" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.thp\OpenWithProgids" Name="OpenPreview.Video" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.tod\OpenWithProgids" Name="OpenPreview.Video" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.trp\OpenWithProgids" Name="OpenPreview.Video" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.ts\OpenWithProgids" Name="OpenPreview.Video" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.tts\OpenWithProgids" Name="OpenPreview.Video" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.vob\OpenWithProgids" Name="OpenPreview.Video" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.vro\OpenWithProgids" Name="OpenPreview.Video" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.webm\OpenWithProgids" Name="OpenPreview.Video" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.wm\OpenWithProgids" Name="OpenPreview.Video" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.wmv\OpenWithProgids" Name="OpenPreview.Video" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.wtv\OpenWithProgids" Name="OpenPreview.Video" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.y4m\OpenWithProgids" Name="OpenPreview.Video" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.3ga\OpenWithProgids" Name="OpenPreview.Audio" Type="string" Value="" />
             <RegistryValue Root="HKLM" Key="Software\Classes\.aac\OpenWithProgids" Name="OpenPreview.Audio" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.ac3\OpenWithProgids" Name="OpenPreview.Audio" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.adts\OpenWithProgids" Name="OpenPreview.Audio" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.aif\OpenWithProgids" Name="OpenPreview.Audio" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.aifc\OpenWithProgids" Name="OpenPreview.Audio" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.aiff\OpenWithProgids" Name="OpenPreview.Audio" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.amr\OpenWithProgids" Name="OpenPreview.Audio" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.ape\OpenWithProgids" Name="OpenPreview.Audio" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.au\OpenWithProgids" Name="OpenPreview.Audio" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.awb\OpenWithProgids" Name="OpenPreview.Audio" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.caf\OpenWithProgids" Name="OpenPreview.Audio" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.dts\OpenWithProgids" Name="OpenPreview.Audio" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.eac3\OpenWithProgids" Name="OpenPreview.Audio" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.ec3\OpenWithProgids" Name="OpenPreview.Audio" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.flac\OpenWithProgids" Name="OpenPreview.Audio" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.gsm\OpenWithProgids" Name="OpenPreview.Audio" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.m4a\OpenWithProgids" Name="OpenPreview.Audio" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.m4b\OpenWithProgids" Name="OpenPreview.Audio" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.mka\OpenWithProgids" Name="OpenPreview.Audio" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.mlp\OpenWithProgids" Name="OpenPreview.Audio" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.mp1\OpenWithProgids" Name="OpenPreview.Audio" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.mp2\OpenWithProgids" Name="OpenPreview.Audio" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.mp3\OpenWithProgids" Name="OpenPreview.Audio" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.mpa\OpenWithProgids" Name="OpenPreview.Audio" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.mpc\OpenWithProgids" Name="OpenPreview.Audio" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.mpga\OpenWithProgids" Name="OpenPreview.Audio" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.oga\OpenWithProgids" Name="OpenPreview.Audio" Type="string" Value="" />
             <RegistryValue Root="HKLM" Key="Software\Classes\.ogg\OpenWithProgids" Name="OpenPreview.Audio" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.oma\OpenWithProgids" Name="OpenPreview.Audio" Type="string" Value="" />
             <RegistryValue Root="HKLM" Key="Software\Classes\.opus\OpenWithProgids" Name="OpenPreview.Audio" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.qcp\OpenWithProgids" Name="OpenPreview.Audio" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.ra\OpenWithProgids" Name="OpenPreview.Audio" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.spx\OpenWithProgids" Name="OpenPreview.Audio" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.tak\OpenWithProgids" Name="OpenPreview.Audio" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.thd\OpenWithProgids" Name="OpenPreview.Audio" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.tta\OpenWithProgids" Name="OpenPreview.Audio" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.voc\OpenWithProgids" Name="OpenPreview.Audio" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.w64\OpenWithProgids" Name="OpenPreview.Audio" Type="string" Value="" />
             <RegistryValue Root="HKLM" Key="Software\Classes\.wav\OpenWithProgids" Name="OpenPreview.Audio" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.weba\OpenWithProgids" Name="OpenPreview.Audio" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.wma\OpenWithProgids" Name="OpenPreview.Audio" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.wv\OpenWithProgids" Name="OpenPreview.Audio" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.it\OpenWithProgids" Name="OpenPreview.Audio" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.mod\OpenWithProgids" Name="OpenPreview.Audio" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.mptm\OpenWithProgids" Name="OpenPreview.Audio" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.s3m\OpenWithProgids" Name="OpenPreview.Audio" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.xm\OpenWithProgids" Name="OpenPreview.Audio" Type="string" Value="" />
 
             <!-- Default apps: what Settings lists under Open Preview, and what one
                  "Set default" there applies to. Windows only lets the user choose. -->
             <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities" Name="ApplicationName" Type="string" Value="Open Preview" />
             <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities" Name="ApplicationDescription" Type="string" Value="A minimal, modern video player" />
             <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities" Name="ApplicationIcon" Type="string" Value="[INSTALLDIR]open-preview.exe,0" />
-            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".mkv" Type="string" Value="OpenPreview.Video" />
-            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".mp4" Type="string" Value="OpenPreview.Video" />
-            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".m4v" Type="string" Value="OpenPreview.Video" />
-            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".avi" Type="string" Value="OpenPreview.Video" />
-            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".mov" Type="string" Value="OpenPreview.Video" />
-            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".webm" Type="string" Value="OpenPreview.Video" />
-            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".wmv" Type="string" Value="OpenPreview.Video" />
-            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".flv" Type="string" Value="OpenPreview.Video" />
-            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".ts" Type="string" Value="OpenPreview.Video" />
-            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".m2ts" Type="string" Value="OpenPreview.Video" />
-            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".mts" Type="string" Value="OpenPreview.Video" />
-            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".mpg" Type="string" Value="OpenPreview.Video" />
-            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".mpeg" Type="string" Value="OpenPreview.Video" />
-            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".ogv" Type="string" Value="OpenPreview.Video" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".3g2" Type="string" Value="OpenPreview.Video" />
             <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".3gp" Type="string" Value="OpenPreview.Video" />
-            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".mp3" Type="string" Value="OpenPreview.Audio" />
-            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".flac" Type="string" Value="OpenPreview.Audio" />
-            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".m4a" Type="string" Value="OpenPreview.Audio" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".3gp2" Type="string" Value="OpenPreview.Video" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".3gpp" Type="string" Value="OpenPreview.Video" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".amv" Type="string" Value="OpenPreview.Video" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".asf" Type="string" Value="OpenPreview.Video" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".avi" Type="string" Value="OpenPreview.Video" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".bik" Type="string" Value="OpenPreview.Video" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".divx" Type="string" Value="OpenPreview.Video" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".dv" Type="string" Value="OpenPreview.Video" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".dvr-ms" Type="string" Value="OpenPreview.Video" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".evo" Type="string" Value="OpenPreview.Video" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".f4v" Type="string" Value="OpenPreview.Video" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".flv" Type="string" Value="OpenPreview.Video" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".gxf" Type="string" Value="OpenPreview.Video" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".m1v" Type="string" Value="OpenPreview.Video" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".m2t" Type="string" Value="OpenPreview.Video" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".m2ts" Type="string" Value="OpenPreview.Video" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".m2v" Type="string" Value="OpenPreview.Video" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".m4v" Type="string" Value="OpenPreview.Video" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".mk3d" Type="string" Value="OpenPreview.Video" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".mkv" Type="string" Value="OpenPreview.Video" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".mov" Type="string" Value="OpenPreview.Video" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".mp4" Type="string" Value="OpenPreview.Video" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".mp4v" Type="string" Value="OpenPreview.Video" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".mpe" Type="string" Value="OpenPreview.Video" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".mpeg" Type="string" Value="OpenPreview.Video" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".mpg" Type="string" Value="OpenPreview.Video" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".mpv" Type="string" Value="OpenPreview.Video" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".mts" Type="string" Value="OpenPreview.Video" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".mxf" Type="string" Value="OpenPreview.Video" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".nsv" Type="string" Value="OpenPreview.Video" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".nut" Type="string" Value="OpenPreview.Video" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".nuv" Type="string" Value="OpenPreview.Video" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".ogm" Type="string" Value="OpenPreview.Video" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".ogv" Type="string" Value="OpenPreview.Video" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".ogx" Type="string" Value="OpenPreview.Video" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".qt" Type="string" Value="OpenPreview.Video" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".rm" Type="string" Value="OpenPreview.Video" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".rmvb" Type="string" Value="OpenPreview.Video" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".thp" Type="string" Value="OpenPreview.Video" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".tod" Type="string" Value="OpenPreview.Video" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".trp" Type="string" Value="OpenPreview.Video" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".ts" Type="string" Value="OpenPreview.Video" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".tts" Type="string" Value="OpenPreview.Video" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".vob" Type="string" Value="OpenPreview.Video" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".vro" Type="string" Value="OpenPreview.Video" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".webm" Type="string" Value="OpenPreview.Video" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".wm" Type="string" Value="OpenPreview.Video" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".wmv" Type="string" Value="OpenPreview.Video" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".wtv" Type="string" Value="OpenPreview.Video" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".y4m" Type="string" Value="OpenPreview.Video" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".3ga" Type="string" Value="OpenPreview.Audio" />
             <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".aac" Type="string" Value="OpenPreview.Audio" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".ac3" Type="string" Value="OpenPreview.Audio" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".adts" Type="string" Value="OpenPreview.Audio" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".aif" Type="string" Value="OpenPreview.Audio" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".aifc" Type="string" Value="OpenPreview.Audio" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".aiff" Type="string" Value="OpenPreview.Audio" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".amr" Type="string" Value="OpenPreview.Audio" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".ape" Type="string" Value="OpenPreview.Audio" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".au" Type="string" Value="OpenPreview.Audio" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".awb" Type="string" Value="OpenPreview.Audio" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".caf" Type="string" Value="OpenPreview.Audio" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".dts" Type="string" Value="OpenPreview.Audio" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".eac3" Type="string" Value="OpenPreview.Audio" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".ec3" Type="string" Value="OpenPreview.Audio" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".flac" Type="string" Value="OpenPreview.Audio" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".gsm" Type="string" Value="OpenPreview.Audio" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".m4a" Type="string" Value="OpenPreview.Audio" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".m4b" Type="string" Value="OpenPreview.Audio" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".mka" Type="string" Value="OpenPreview.Audio" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".mlp" Type="string" Value="OpenPreview.Audio" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".mp1" Type="string" Value="OpenPreview.Audio" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".mp2" Type="string" Value="OpenPreview.Audio" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".mp3" Type="string" Value="OpenPreview.Audio" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".mpa" Type="string" Value="OpenPreview.Audio" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".mpc" Type="string" Value="OpenPreview.Audio" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".mpga" Type="string" Value="OpenPreview.Audio" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".oga" Type="string" Value="OpenPreview.Audio" />
             <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".ogg" Type="string" Value="OpenPreview.Audio" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".oma" Type="string" Value="OpenPreview.Audio" />
             <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".opus" Type="string" Value="OpenPreview.Audio" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".qcp" Type="string" Value="OpenPreview.Audio" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".ra" Type="string" Value="OpenPreview.Audio" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".spx" Type="string" Value="OpenPreview.Audio" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".tak" Type="string" Value="OpenPreview.Audio" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".thd" Type="string" Value="OpenPreview.Audio" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".tta" Type="string" Value="OpenPreview.Audio" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".voc" Type="string" Value="OpenPreview.Audio" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".w64" Type="string" Value="OpenPreview.Audio" />
             <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".wav" Type="string" Value="OpenPreview.Audio" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".weba" Type="string" Value="OpenPreview.Audio" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".wma" Type="string" Value="OpenPreview.Audio" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".wv" Type="string" Value="OpenPreview.Audio" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".it" Type="string" Value="OpenPreview.Audio" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".mod" Type="string" Value="OpenPreview.Audio" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".mptm" Type="string" Value="OpenPreview.Audio" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".s3m" Type="string" Value="OpenPreview.Audio" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".xm" Type="string" Value="OpenPreview.Audio" />
             <RegistryValue Root="HKLM" Key="Software\RegisteredApplications" Name="Open Preview" Type="string" Value="Software\Open Preview\Capabilities" />
           </Component>
 

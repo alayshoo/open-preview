@@ -35,6 +35,7 @@ pub const FORMAT_DOUBLE: Format = 5;
 
 pub const EVENT_NONE: c_int = 0;
 pub const EVENT_SHUTDOWN: c_int = 1;
+pub const EVENT_LOG_MESSAGE: c_int = 2;
 pub const EVENT_START_FILE: c_int = 6;
 pub const EVENT_END_FILE: c_int = 7;
 pub const EVENT_FILE_LOADED: c_int = 8;
@@ -57,6 +58,13 @@ struct RawEventProperty {
     name: *const c_char,
     format: Format,
     data: *mut c_void,
+}
+
+#[repr(C)]
+struct RawEventLogMessage {
+    prefix: *const c_char,
+    _level: *const c_char,
+    text: *const c_char,
 }
 
 /// Only the leading fields we read; mpv owns the allocation.
@@ -116,6 +124,7 @@ struct Api {
     set_property: unsafe extern "C" fn(*mut MpvHandle, *const c_char, Format, *mut c_void) -> c_int,
     get_property: unsafe extern "C" fn(*mut MpvHandle, *const c_char, Format, *mut c_void) -> c_int,
     observe_property: unsafe extern "C" fn(*mut MpvHandle, u64, *const c_char, Format) -> c_int,
+    request_log_messages: unsafe extern "C" fn(*mut MpvHandle, *const c_char) -> c_int,
     wait_event: unsafe extern "C" fn(*mut MpvHandle, f64) -> *mut RawEvent,
     set_wakeup_callback: unsafe extern "C" fn(*mut MpvHandle, Option<Callback>, *mut c_void),
     error_string: unsafe extern "C" fn(c_int) -> *const c_char,
@@ -142,7 +151,8 @@ pub fn library_hint() -> &'static str {
 
 fn candidate_paths() -> Vec<PathBuf> {
     let exe_dir = std::env::current_exe().ok().and_then(|p| p.parent().map(PathBuf::from));
-    let mut out = Vec::new();
+    // For trying another build, and for the media tests.
+    let mut out: Vec<PathBuf> = std::env::var_os("OPEN_PREVIEW_LIBMPV").map(PathBuf::from).into_iter().collect();
     for name in LIB_NAMES {
         if let Some(dir) = &exe_dir {
             out.push(dir.join(name));
@@ -179,6 +189,7 @@ unsafe fn bind(lib: Library) -> Result<Api, String> {
         set_property: sym!("mpv_set_property"),
         get_property: sym!("mpv_get_property"),
         observe_property: sym!("mpv_observe_property"),
+        request_log_messages: sym!("mpv_request_log_messages"),
         wait_event: sym!("mpv_wait_event"),
         set_wakeup_callback: sym!("mpv_set_wakeup_callback"),
         error_string: sym!("mpv_error_string"),
@@ -220,6 +231,7 @@ pub enum PropValue {
 #[derive(Debug)]
 pub enum Event {
     Shutdown,
+    Log { prefix: String, text: String },
     StartFile,
     FileLoaded,
     EndFile { error: Option<String> },
@@ -352,6 +364,13 @@ impl Mpv {
         Some(s)
     }
 
+    /// Delivers mpv's log messages at `level` ("error", "warn", ...) and above
+    /// as `Event::Log`.
+    pub fn request_log_messages(&self, level: &str) {
+        let l = cstr(level);
+        unsafe { (api().request_log_messages)(self.handle, l.as_ptr()) };
+    }
+
     pub fn observe(&self, id: u64, name: &str, format: Format) {
         let n = cstr(name);
         unsafe { (api().observe_property)(self.handle, id, n.as_ptr(), format) };
@@ -364,6 +383,11 @@ impl Mpv {
             let out = match ev.event_id {
                 EVENT_NONE => return None,
                 EVENT_SHUTDOWN => Event::Shutdown,
+                EVENT_LOG_MESSAGE => {
+                    let m = unsafe { &*(ev.data as *const RawEventLogMessage) };
+                    let s = |p: *const c_char| unsafe { CStr::from_ptr(p) }.to_string_lossy().into_owned();
+                    Event::Log { prefix: s(m.prefix), text: s(m.text).trim_end().to_string() }
+                }
                 EVENT_START_FILE => Event::StartFile,
                 EVENT_FILE_LOADED => Event::FileLoaded,
                 EVENT_VIDEO_RECONFIG => Event::VideoReconfig,
@@ -505,8 +529,10 @@ impl RenderContext {
         unsafe { (api().render_update)(self.ctx) & RENDER_UPDATE_FRAME != 0 }
     }
 
-    pub fn render(&self, fbo: i32, width: i32, height: i32, flip_y: bool) {
-        let mut fbo = OpenGlFbo { fbo, w: width, h: height, internal_format: 0 };
+    /// Draws into framebuffer `fbo`. `internal_format` is its GL format, or
+    /// 0 for 8-bit; mpv dithers to that depth.
+    pub fn render(&self, fbo: i32, width: i32, height: i32, flip_y: bool, internal_format: i32) {
+        let mut fbo = OpenGlFbo { fbo, w: width, h: height, internal_format };
         let mut flip: c_int = flip_y as c_int;
         // Never stall the UI thread waiting for a frame's display time.
         let mut block: c_int = 0;

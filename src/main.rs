@@ -2,11 +2,15 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod app;
+mod formats;
+mod hdr;
 mod icon;
 mod mpv;
 mod platform;
 mod player;
 mod thumbnail;
+#[cfg(test)]
+mod tests;
 mod ui;
 
 use std::sync::Arc;
@@ -15,6 +19,8 @@ fn mpv_options(watch_later: &str) -> Vec<(&'static str, String)> {
     let mut opts: Vec<(&str, String)> = vec![
         ("vo", "libmpv".into()),
         ("hwdec", "auto-safe".into()),
+        // Deinterlace what's flagged interlaced (TV, DVD), as VLC does.
+        ("deinterlace", "auto".into()),
         ("idle", "yes".into()),
         ("keep-open", "yes".into()),
         ("input-default-bindings", "no".into()),
