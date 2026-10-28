@@ -16,6 +16,12 @@ use crate::mpv::{Event, Mpv, RenderContext};
 const POSITION: &str = "15%";
 const TIMEOUT: Duration = Duration::from_secs(8);
 
+/// HDR to SDR for the software renderer, which otherwise maps 100 nits to
+/// white and clips the rest. The picture's reference white (203 nits, BT.2408)
+/// becomes SDR white and highlights roll off above it, as on an SDR screen.
+const TONE_MAP: &str = "lavfi=[zscale=t=linear:npl=203,format=gbrpf32le,zscale=p=bt709,\
+                        tonemap=tonemap=mobius:desat=0,zscale=t=bt709:m=bt709:r=tv,format=yuv444p]";
+
 pub fn run(args: &[String]) -> i32 {
     let Some(path) = args.first() else {
         eprintln!("usage: open-preview --thumbnail <file> [size]");
@@ -38,7 +44,7 @@ pub fn run(args: &[String]) -> i32 {
     }
 }
 
-fn render(path: &str, size: u32) -> Result<(u32, u32, Vec<u8>), String> {
+pub(crate) fn render(path: &str, size: u32) -> Result<(u32, u32, Vec<u8>), String> {
     let mpv = Mpv::new(&[
         ("vo", "libmpv"),
         ("ao", "null"),
@@ -57,25 +63,47 @@ fn render(path: &str, size: u32) -> Result<(u32, u32, Vec<u8>), String> {
         ("keep-open", "always"),
     ])?;
     let renderer = RenderContext::new_sw(&mpv)?;
+    // Kept so a failure can say what mpv saw go wrong.
+    mpv.request_log_messages("error");
     mpv.command(&["loadfile", path])?;
 
     let deadline = Instant::now() + TIMEOUT;
-    let mut restarted = false;
+    let mut restarted: Option<Instant> = None;
+    let mut tone_mapped = false;
+    let mut last_error = None;
+    let explain = |what: String, log: &Option<String>| match log {
+        Some(l) => format!("{what} ({l})"),
+        None => what,
+    };
     loop {
         while let Some(event) = mpv.poll_event() {
             match event {
                 Event::FileLoaded => rotate_in_filter(&mpv),
-                Event::PlaybackRestart => restarted = true,
-                Event::EndFile { error } => return Err(error.unwrap_or_else(|| "no video".into())),
+                Event::PlaybackRestart => restarted = Some(Instant::now()),
+                Event::Log { prefix, text } => last_error = Some(format!("{prefix}: {text}")),
+                Event::EndFile { error } => {
+                    return Err(explain(error.unwrap_or_else(|| "no video".into()), &last_error));
+                }
                 Event::Shutdown => return Err("mpv shut down".into()),
                 _ => {}
             }
         }
-        if restarted && renderer.wants_frame() {
+        // mpv hands each frame over once and keeps it as the current one if
+        // nobody renders it within 200 ms, as can happen to a lone cover art
+        // frame. Redrawing that is as good, so don't wait for another.
+        let ready = restarted.is_some_and(|t| renderer.wants_frame() || t.elapsed() > Duration::from_millis(100));
+        if ready {
+            let hdr = matches!(mpv.get_str("video-params/gamma").as_deref(), Some("pq" | "hlg"));
+            // Adding the filter redoes the frame, with another restart.
+            if hdr && !tone_mapped && mpv.command(&["vf", "append", TONE_MAP]).is_ok() {
+                tone_mapped = true;
+                restarted = None;
+                continue;
+            }
             break;
         }
         if Instant::now() > deadline {
-            return Err("timed out waiting for a frame".into());
+            return Err(explain("timed out waiting for a frame".into(), &last_error));
         }
         thread::sleep(Duration::from_millis(5));
     }

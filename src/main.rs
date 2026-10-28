@@ -16,6 +16,8 @@ fn mpv_options(watch_later: &str) -> Vec<(&'static str, String)> {
     let mut opts: Vec<(&str, String)> = vec![
         ("vo", "libmpv".into()),
         ("hwdec", "auto-safe".into()),
+        // Deinterlace what's flagged interlaced (TV, DVD), as VLC does.
+        ("deinterlace", "auto".into()),
         ("idle", "yes".into()),
         ("keep-open", "yes".into()),
         ("input-default-bindings", "no".into()),

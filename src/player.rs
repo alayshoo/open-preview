@@ -167,7 +167,7 @@ impl Player {
         while let Some(ev) = self.mpv.poll_event() {
             changed = true;
             match ev {
-                Event::Shutdown => {}
+                Event::Shutdown | Event::Log { .. } => {}
                 Event::StartFile => {
                     self.loading = true;
                     self.last_error = None;
