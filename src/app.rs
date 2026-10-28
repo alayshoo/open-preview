@@ -19,9 +19,13 @@ use crate::ui::widgets::{self, SeekBar, SeekEvent, WindowGlyph};
 
 /// Seconds of pointer inactivity before the controls fade out.
 const HIDE_AFTER: f64 = 2.2;
-const TOP_BAR_H: f32 = 40.0;
-/// Width of each window control in the title bar.
-const CONTROL_W: f32 = 44.0;
+/// Title bar window controls: Open Darkroom's 36×28 buttons, 2px apart, kept
+/// the same distance from the window's top and side edges.
+const CONTROL_W: f32 = 36.0;
+const CONTROL_H: f32 = 28.0;
+const CONTROL_GAP: f32 = 2.0;
+const CHROME_INSET: f32 = 8.0;
+const TOP_BAR_H: f32 = CONTROL_H + 2.0 * CHROME_INSET;
 const EDGE_GRIP: f32 = 6.0;
 const SPEEDS: &[f64] = &[0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 3.0];
 
@@ -134,17 +138,12 @@ impl OpenPreviewApp {
 
     // --- window management --------------------------------------------------
 
-    fn is_fullscreen(ctx: &egui::Context) -> bool {
-        ctx.input(|i| i.viewport().fullscreen.unwrap_or(false))
-    }
-
     fn is_maximized(ctx: &egui::Context) -> bool {
         ctx.input(|i| i.viewport().maximized.unwrap_or(false))
     }
 
-    fn toggle_fullscreen(&mut self, ctx: &egui::Context) {
-        let fs = Self::is_fullscreen(ctx);
-        ctx.send_viewport_cmd(ViewportCommand::Fullscreen(!fs));
+    fn toggle_maximized(ctx: &egui::Context) {
+        ctx.send_viewport_cmd(ViewportCommand::Maximized(!Self::is_maximized(ctx)));
     }
 
     fn toggle_pin(&mut self, ctx: &egui::Context) {
@@ -159,7 +158,7 @@ impl OpenPreviewApp {
         let aspect = self.player.aspect();
         platform::set_aspect_lock(aspect);
         let Some(aspect) = aspect else { return };
-        if Self::is_fullscreen(ctx) || Self::is_maximized(ctx) {
+        if Self::is_maximized(ctx) {
             return;
         }
         let info = ctx.input(|i| i.viewport().clone());
@@ -341,7 +340,7 @@ impl OpenPreviewApp {
             Key::ArrowUp => self.change_volume(ctx, 5.0),
             Key::ArrowDown => self.change_volume(ctx, -5.0),
             Key::M => self.toggle_mute(ctx),
-            Key::F | Key::F11 => self.toggle_fullscreen(ctx),
+            Key::F | Key::F11 => Self::toggle_maximized(ctx),
             Key::P => self.toggle_pin(ctx),
             Key::S => self.cycle_track(ctx, TrackKind::Sub),
             Key::A => self.cycle_track(ctx, TrackKind::Audio),
@@ -368,8 +367,6 @@ impl OpenPreviewApp {
                     self.show_help = false;
                 } else if self.menu.is_some() {
                     self.menu = None;
-                } else if Self::is_fullscreen(ctx) {
-                    ctx.send_viewport_cmd(ViewportCommand::Fullscreen(false));
                 }
             }
             _ => {}
@@ -476,13 +473,11 @@ impl OpenPreviewApp {
         }
     }
 
-    /// Vault's title bar layout (the help button leading, the title centred
-    /// against the window, the window controls trailing) over a black-to-clear
-    /// gradient, so the video still shows through it. The empty screen has
-    /// nothing under the bar to fade, so it has no gradient.
+    /// The title on the left, the window controls on the right, over a
+    /// black-to-clear gradient so the video still shows through. The empty
+    /// screen has nothing under the bar to fade, so it has no gradient.
     fn top_bar(&mut self, ui: &mut Ui, ctx: &egui::Context, screen: Rect) {
         let width = screen.width();
-        let fs = Self::is_fullscreen(ctx);
         let maximized = Self::is_maximized(ctx);
         let p = ui.painter().clone();
         let bar = Rect::from_min_size(screen.min, vec2(width, TOP_BAR_H));
@@ -493,43 +488,33 @@ impl OpenPreviewApp {
 
         // Window controls, right to left: close, maximise, minimise, pin.
         let tiny = width < 360.0;
-        let mut x = bar.right();
+        let mut x = bar.right() - CHROME_INSET + CONTROL_GAP;
         let mut place = || {
-            x -= CONTROL_W;
-            Rect::from_min_size(pos2(x, bar.top()), vec2(CONTROL_W, TOP_BAR_H))
+            x -= CONTROL_W + CONTROL_GAP;
+            Rect::from_min_size(pos2(x, bar.top() + CHROME_INSET), vec2(CONTROL_W, CONTROL_H))
         };
         if widgets::window_control(ui, place(), WindowGlyph::Close, Id::unique("close"), "").clicked() {
             ctx.send_viewport_cmd(ViewportCommand::Close);
         }
-        if fs {
-            if widgets::window_control(ui, place(), WindowGlyph::ExitFullscreen, Id::unique("fs-exit"), "Exit fullscreen (Esc)").clicked() {
-                ctx.send_viewport_cmd(ViewportCommand::Fullscreen(false));
-            }
-        } else if !tiny {
+        if !tiny {
             let glyph = if maximized { WindowGlyph::Restore } else { WindowGlyph::Maximize };
             if widgets::window_control(ui, place(), glyph, Id::unique("max"), "").clicked() {
-                ctx.send_viewport_cmd(ViewportCommand::Maximized(!maximized));
+                Self::toggle_maximized(ctx);
             }
-        }
-        if !tiny
-            && widgets::window_control(ui, place(), WindowGlyph::Minimize, Id::unique("min"), "").clicked() {
+            if widgets::window_control(ui, place(), WindowGlyph::Minimize, Id::unique("min"), "").clicked() {
                 ctx.send_viewport_cmd(ViewportCommand::Minimized(true));
             }
+        }
         let pin_tip = if self.pinned { "Unpin (P)" } else { "Keep on top (P)" };
-        if widgets::window_control(ui, place(), WindowGlyph::Pin { on: self.pinned }, Id::unique("pin"), pin_tip).clicked() {
+        let pin = place();
+        if widgets::window_control(ui, pin, WindowGlyph::Pin { on: self.pinned }, Id::unique("pin"), pin_tip).clicked() {
             self.toggle_pin(ctx);
         }
 
-        if !tiny {
-            let r = Rect::from_center_size(pos2(bar.left() + 8.0 + 16.0, bar.center().y), vec2(32.0, 32.0));
-            if widgets::flat_button(ui, r, Icon::Keyboard, Id::unique("help"), "Shortcuts (F1)").clicked() {
-                self.show_help = !self.show_help;
-            }
-        }
-
-        // Centred on the window, clear of both groups, ellipsed rather than
-        // running under them.
-        let max_w = width - 340.0;
+        // Leading, in line with the timeline's 16px sides, and ellipsed short
+        // of the controls rather than running under them.
+        let left = bar.left() + 16.0;
+        let max_w = pin.left() - 12.0 - left;
         if max_w > 40.0 {
             let title = if self.player.has_media() && !self.player.title.is_empty() { self.player.title.as_str() } else { "Open Preview" };
             // Vault's dim title sits on a solid bar; over video it needs the
@@ -538,7 +523,7 @@ impl OpenPreviewApp {
             let mut job = LayoutJob::simple_singleline(title.to_string(), FontId::proportional(13.0), color);
             job.wrap = TextWrapping { max_width: max_w, max_rows: 1, break_anywhere: true, overflow_character: Some('…') };
             let galley = p.layout_job(job);
-            p.galley(bar.center() - galley.size() / 2.0, galley, color);
+            p.galley(pos2(left, pin.center().y - galley.size().y / 2.0), galley, color);
         }
     }
 
@@ -560,7 +545,6 @@ impl OpenPreviewApp {
         let seek = SeekBar {
             position: player.time_pos,
             duration: player.duration,
-            buffered: player.cache_time,
             chapters: &player.chapters,
         };
         if player.duration > 0.0 {
@@ -666,10 +650,10 @@ impl OpenPreviewApp {
             rx -= 2.0;
             r
         };
-        let fs = Self::is_fullscreen(ctx);
-        let fs_icon = if fs { Icon::FullscreenExit } else { Icon::Fullscreen };
-        if widgets::icon_button(ui, prev(btn), fs_icon, Id::unique("fs"), "Fullscreen (F)").clicked() {
-            self.toggle_fullscreen(ctx);
+        let maximized = Self::is_maximized(ctx);
+        let (max_icon, max_tip) = if maximized { (Icon::FullscreenExit, "Restore (F)") } else { (Icon::Fullscreen, "Maximize (F)") };
+        if widgets::icon_button(ui, prev(btn), max_icon, Id::unique("maximize"), max_tip).clicked() {
+            Self::toggle_maximized(ctx);
         }
         // `shape` is what the button draws, so the open-menu ring follows it: a
         // circle around an icon, a pill around the speed label.
@@ -687,6 +671,12 @@ impl OpenPreviewApp {
                     ui.painter().rect_stroke(ring, ring.height() / 2.0, Stroke::new(1.0, theme::COLOR4), StrokeKind::Inside);
                 }
         };
+        if !compact {
+            let r = prev(btn);
+            if r.left() > time_end + 8.0 && widgets::icon_button(ui, r, Icon::Keyboard, Id::unique("help"), "Shortcuts (F1)").clicked() {
+                self.show_help = !self.show_help;
+            }
+        }
         if !tiny {
             let r = prev(btn);
             if r.left() > time_end + 8.0 {
@@ -865,11 +855,10 @@ impl OpenPreviewApp {
             ("S / A", "Cycle subtitles / audio"),
             ("Z / X", "Subtitle delay −/+ 0.1s"),
             ("[ / ] / Backspace", "Speed down / up / reset"),
-            ("F / Double-click", "Fullscreen"),
+            ("F / Double-click", "Maximize / restore"),
             ("P", "Keep on top"),
             ("PgUp / PgDn", "Previous / next in playlist"),
             ("Ctrl+O / Ctrl+V", "Open file / paste path or URL"),
-            ("Esc", "Exit fullscreen"),
         ];
         let mut open = true;
         Area::new(Id::unique("help-panel"))
@@ -940,7 +929,6 @@ impl eframe::App for OpenPreviewApp {
         self.was_focused = focused;
 
         let has_media = self.player.has_media();
-        let fullscreen = Self::is_fullscreen(&ctx);
         let maximized = Self::is_maximized(&ctx);
 
         // Activity tracking for the auto-hiding chrome.
@@ -965,7 +953,7 @@ impl eframe::App for OpenPreviewApp {
         }
 
         // Edge resizing for the borderless window.
-        let edge = hover.filter(|_| !fullscreen && !maximized).and_then(|p| edge_at(p, screen, EDGE_GRIP));
+        let edge = hover.filter(|_| !maximized).and_then(|p| edge_at(p, screen, EDGE_GRIP));
         if let Some(dir) = edge {
             ctx.set_cursor_icon(resize_cursor(dir));
             if primary_pressed {
@@ -981,9 +969,17 @@ impl eframe::App for OpenPreviewApp {
         if bg.drag_started() && !self.press_on_edge {
             ctx.send_viewport_cmd(ViewportCommand::StartDrag);
         }
-        if bg.double_clicked() && has_media {
-            self.toggle_fullscreen(&ctx);
-        } else if bg.clicked() && !self.press_on_edge && !self.show_help {
+        // Like a native title bar: double-clicking maximises, and a single
+        // click on the bar does nothing. Elsewhere a click plays or pauses, so
+        // a double-click there undoes the first click's toggle.
+        let on_bar = bg.interact_pointer_pos().is_some_and(|p| p.y < screen.top() + TOP_BAR_H);
+        if bg.double_clicked() && !self.press_on_edge {
+            Self::toggle_maximized(&ctx);
+            if has_media && !on_bar && !self.show_help {
+                self.player.toggle_pause();
+                self.flash = None;
+            }
+        } else if bg.clicked() && !self.press_on_edge && !self.show_help && !on_bar {
             if has_media {
                 self.toggle_pause(&ctx);
             } else {
@@ -1106,7 +1102,7 @@ impl eframe::App for FatalApp {
         job.halign = egui::Align::Center;
         let g = p.layout_job(job);
         p.galley(pos2(c.x, c.y + 20.0), g, theme::TEXT_DIM);
-        let close = Rect::from_min_size(pos2(screen.right() - CONTROL_W, screen.top()), vec2(CONTROL_W, TOP_BAR_H));
+        let close = Rect::from_min_size(pos2(screen.right() - CHROME_INSET - CONTROL_W, screen.top() + CHROME_INSET), vec2(CONTROL_W, CONTROL_H));
         if widgets::window_control(root, close, WindowGlyph::Close, Id::unique("close"), "").clicked() {
             ctx.send_viewport_cmd(ViewportCommand::Close);
         }
