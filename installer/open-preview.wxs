@@ -1,0 +1,179 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Open Preview installer (WiX v3 schema). Built on Linux with msitools' wixl
+  by scripts/build-msi.sh:
+    wixl -a x64 -D Version=<x.y.z> -D BinDir=<staged files> -o Open-Preview.msi installer/open-preview.wxs
+  It also builds with WiX Toolset v3 (candle/light) on Windows.
+-->
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+  <!-- The UpgradeCode is the one Lumen shipped with, so installing this replaces it. -->
+  <Product Id="*"
+           Name="Open Preview"
+           Language="1033"
+           Version="$(var.Version)"
+           Manufacturer="Open Preview"
+           UpgradeCode="A8C8B7BB-18A8-4C8C-AB37-9B97FBF0F645">
+
+    <Package InstallerVersion="500"
+             Compressed="yes"
+             InstallScope="perMachine"
+             Description="Open Preview media player"
+             Comments="Modern video player built on libmpv" />
+
+    <MajorUpgrade DowngradeErrorMessage="A newer version of Open Preview is already installed." />
+    <Media Id="1" Cabinet="open-preview.cab" EmbedCab="yes" />
+
+    <Icon Id="AppIcon" SourceFile="$(var.BinDir)/open-preview.ico" />
+    <Property Id="ARPPRODUCTICON" Value="AppIcon" />
+    <Property Id="ARPURLINFOABOUT" Value="https://github.com/alayshoo/open-preview" />
+    <Property Id="ARPNOMODIFY" Value="1" />
+
+    <Directory Id="TARGETDIR" Name="SourceDir">
+      <Directory Id="ProgramFiles64Folder">
+        <Directory Id="INSTALLDIR" Name="Open Preview">
+
+          <Component Id="MainExe" Guid="8073901B-2499-44A0-89D8-AE3527C960D7" Win64="yes">
+            <File Id="AppExe" Name="open-preview.exe" Source="$(var.BinDir)/open-preview.exe" KeyPath="yes" />
+          </Component>
+
+          <Component Id="LibMpv" Guid="F4E7B960-13F2-459C-98D1-B5C3E5872EB0" Win64="yes">
+            <File Id="LibMpvDll" Name="libmpv-2.dll" Source="$(var.BinDir)/libmpv-2.dll" KeyPath="yes" />
+          </Component>
+
+          <Component Id="Notices" Guid="33FFEEB4-EA32-4403-88FA-89D595080504" Win64="yes">
+            <File Id="NoticesTxt" Name="THIRD-PARTY-NOTICES.txt" Source="$(var.BinDir)/THIRD-PARTY-NOTICES.txt" KeyPath="yes" />
+          </Component>
+
+          <Component Id="ThumbnailDll" Guid="C1B595B6-933F-4BA3-A05F-D2591CED2BBF" Win64="yes">
+            <File Id="ThumbsDll" Name="open_preview_thumbs.dll" Source="$(var.BinDir)/open_preview_thumbs.dll" KeyPath="yes" />
+          </Component>
+
+          <Component Id="ThumbnailHandler" Guid="6385E6E2-AC3B-4C0C-B8E7-3CB6475601C4" Win64="yes">
+            <RegistryValue Root="HKLM" Key="Software\Classes\CLSID\{9153F65E-0762-4F48-87A5-E0200386CDB0}" Type="string" Value="Open Preview thumbnail handler" KeyPath="yes" />
+            <!-- Initialised with a file path, which Explorer only allows in-process.
+                 The DLL is small and decodes nothing itself: frames are rendered by
+                 open-preview.exe in a child process that can fail on its own. -->
+            <RegistryValue Root="HKLM" Key="Software\Classes\CLSID\{9153F65E-0762-4F48-87A5-E0200386CDB0}" Name="DisableProcessIsolation" Type="integer" Value="1" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\CLSID\{9153F65E-0762-4F48-87A5-E0200386CDB0}\InprocServer32" Type="string" Value="[INSTALLDIR]open_preview_thumbs.dll" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\CLSID\{9153F65E-0762-4F48-87A5-E0200386CDB0}\InprocServer32" Name="ThreadingModel" Type="string" Value="Apartment" />
+          </Component>
+
+          <Component Id="Associations" Guid="5F9ED48A-5E90-49AB-8828-179877E0036A" Win64="yes">
+            <!-- File types. Video gets the thumbnail handler; Explorer uses it
+                 only while Open Preview is the default for that type. -->
+            <RegistryValue Root="HKLM" Key="Software\Classes\OpenPreview.Video" Type="string" Value="Open Preview video" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\OpenPreview.Video" Name="FriendlyTypeName" Type="string" Value="Video" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\OpenPreview.Video\DefaultIcon" Type="string" Value="[INSTALLDIR]open-preview.exe,0" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\OpenPreview.Video\shell\open\command" Type="string" Value="&quot;[INSTALLDIR]open-preview.exe&quot; &quot;%1&quot;" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\OpenPreview.Video\ShellEx\{e357fccd-a995-4576-b01f-234630154e96}" Type="string" Value="{9153F65E-0762-4F48-87A5-E0200386CDB0}" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\OpenPreview.Audio" Type="string" Value="Open Preview audio" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\OpenPreview.Audio" Name="FriendlyTypeName" Type="string" Value="Audio" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\OpenPreview.Audio\DefaultIcon" Type="string" Value="[INSTALLDIR]open-preview.exe,0" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\OpenPreview.Audio\shell\open\command" Type="string" Value="&quot;[INSTALLDIR]open-preview.exe&quot; &quot;%1&quot;" />
+
+            <!-- "Open with": listed for every type, never taking over a default. -->
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe" Name="FriendlyAppName" Type="string" Value="Open Preview" KeyPath="yes" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\DefaultIcon" Type="string" Value="[INSTALLDIR]open-preview.exe,0" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\shell\open\command" Type="string" Value="&quot;[INSTALLDIR]open-preview.exe&quot; &quot;%1&quot;" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".mkv" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".mp4" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".m4v" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".avi" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".mov" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".webm" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".wmv" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".flv" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".ts" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".m2ts" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".mts" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".mpg" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".mpeg" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".ogv" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".3gp" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".mp3" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".flac" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".m4a" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".aac" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".ogg" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".opus" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\Applications\open-preview.exe\SupportedTypes" Name=".wav" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.mkv\OpenWithProgids" Name="OpenPreview.Video" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.mp4\OpenWithProgids" Name="OpenPreview.Video" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.m4v\OpenWithProgids" Name="OpenPreview.Video" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.avi\OpenWithProgids" Name="OpenPreview.Video" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.mov\OpenWithProgids" Name="OpenPreview.Video" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.webm\OpenWithProgids" Name="OpenPreview.Video" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.wmv\OpenWithProgids" Name="OpenPreview.Video" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.flv\OpenWithProgids" Name="OpenPreview.Video" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.ts\OpenWithProgids" Name="OpenPreview.Video" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.m2ts\OpenWithProgids" Name="OpenPreview.Video" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.mts\OpenWithProgids" Name="OpenPreview.Video" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.mpg\OpenWithProgids" Name="OpenPreview.Video" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.mpeg\OpenWithProgids" Name="OpenPreview.Video" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.ogv\OpenWithProgids" Name="OpenPreview.Video" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.3gp\OpenWithProgids" Name="OpenPreview.Video" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.mp3\OpenWithProgids" Name="OpenPreview.Audio" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.flac\OpenWithProgids" Name="OpenPreview.Audio" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.m4a\OpenWithProgids" Name="OpenPreview.Audio" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.aac\OpenWithProgids" Name="OpenPreview.Audio" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.ogg\OpenWithProgids" Name="OpenPreview.Audio" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.opus\OpenWithProgids" Name="OpenPreview.Audio" Type="string" Value="" />
+            <RegistryValue Root="HKLM" Key="Software\Classes\.wav\OpenWithProgids" Name="OpenPreview.Audio" Type="string" Value="" />
+
+            <!-- Default apps: what Settings lists under Open Preview, and what one
+                 "Set default" there applies to. Windows only lets the user choose. -->
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities" Name="ApplicationName" Type="string" Value="Open Preview" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities" Name="ApplicationDescription" Type="string" Value="A minimal, modern video player" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities" Name="ApplicationIcon" Type="string" Value="[INSTALLDIR]open-preview.exe,0" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".mkv" Type="string" Value="OpenPreview.Video" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".mp4" Type="string" Value="OpenPreview.Video" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".m4v" Type="string" Value="OpenPreview.Video" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".avi" Type="string" Value="OpenPreview.Video" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".mov" Type="string" Value="OpenPreview.Video" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".webm" Type="string" Value="OpenPreview.Video" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".wmv" Type="string" Value="OpenPreview.Video" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".flv" Type="string" Value="OpenPreview.Video" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".ts" Type="string" Value="OpenPreview.Video" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".m2ts" Type="string" Value="OpenPreview.Video" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".mts" Type="string" Value="OpenPreview.Video" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".mpg" Type="string" Value="OpenPreview.Video" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".mpeg" Type="string" Value="OpenPreview.Video" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".ogv" Type="string" Value="OpenPreview.Video" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".3gp" Type="string" Value="OpenPreview.Video" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".mp3" Type="string" Value="OpenPreview.Audio" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".flac" Type="string" Value="OpenPreview.Audio" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".m4a" Type="string" Value="OpenPreview.Audio" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".aac" Type="string" Value="OpenPreview.Audio" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".ogg" Type="string" Value="OpenPreview.Audio" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".opus" Type="string" Value="OpenPreview.Audio" />
+            <RegistryValue Root="HKLM" Key="Software\Open Preview\Capabilities\FileAssociations" Name=".wav" Type="string" Value="OpenPreview.Audio" />
+            <RegistryValue Root="HKLM" Key="Software\RegisteredApplications" Name="Open Preview" Type="string" Value="Software\Open Preview\Capabilities" />
+          </Component>
+
+        </Directory>
+      </Directory>
+
+      <Directory Id="ProgramMenuFolder">
+        <Component Id="StartMenuShortcut" Guid="5839252A-EE62-4E56-B9D9-3B4ACDB2E0DD" Win64="yes">
+          <Shortcut Id="AppShortcut"
+                    Name="Open Preview"
+                    Description="Modern video player"
+                    Target="[INSTALLDIR]open-preview.exe"
+                    WorkingDirectory="INSTALLDIR"
+                    Icon="AppIcon" />
+          <RegistryValue Root="HKLM" Key="Software\Open Preview" Name="StartMenuShortcut" Type="integer" Value="1" KeyPath="yes" />
+        </Component>
+      </Directory>
+    </Directory>
+
+    <Feature Id="Complete" Title="Open Preview" Level="1">
+      <ComponentRef Id="MainExe" />
+      <ComponentRef Id="LibMpv" />
+      <ComponentRef Id="Notices" />
+      <ComponentRef Id="ThumbnailDll" />
+      <ComponentRef Id="ThumbnailHandler" />
+      <ComponentRef Id="Associations" />
+      <ComponentRef Id="StartMenuShortcut" />
+    </Feature>
+  </Product>
+</Wix>

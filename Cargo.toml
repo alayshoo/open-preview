@@ -1,7 +1,13 @@
 [package]
-name = "lumen"
-version = "0.2.0"
+name = "open-preview"
+version = "0.3.0"
 edition = "2024"
+description = "A minimal, modern video player built on libmpv"
+license = "0BSD"
+repository = "https://github.com/alayshoo/open-preview"
+
+[workspace]
+members = [".", "thumbnailer"]
 
 [dependencies]
 dirs = "7.0.0"

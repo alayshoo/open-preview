@@ -1,6 +1,6 @@
-# Lumen
+# Open Preview
 
-![Lumen playing a video, with and without its auto-hiding controls](docs/screenshot.png)
+![Open Preview playing a video, with and without its auto-hiding controls](docs/screenshot.png)
 
 A minimal, modern video player for Windows, written in Rust.
 
@@ -11,11 +11,12 @@ That lets the controls sit on the picture instead of in a separate toolbar.
 
 ## Design
 
-- **Vault's look.** The title bar and the timeline are copied from Vault (and
-  so from Open Darkroom): its neutral grey palette, a solid 40 px title bar with
-  the title centred, and its timeline, which is cut into chapters, keeps a gap
-  around the head and grows the head as you take hold of it. No accent colour
-  anywhere.
+- **Vault's look.** The title bar, timeline and volume slider are copied from
+  Vault (and so from Open Darkroom): its neutral grey palette, its Figtree
+  typeface, a 40 px title bar with the title centred over a black-to-clear
+  gradient, and its slider, which is cut into chapters on the timeline, keeps a
+  gap around the head and grows the head as you take hold of it. No accent
+  colour anywhere.
 - **Borderless window that is its own picture-in-picture.** The title bar and
   controls fade out after about 2 s without mouse movement, or as soon as the
   cursor leaves the window, leaving just the video.
@@ -28,8 +29,7 @@ That lets the controls sit on the picture instead of in a separate toolbar.
   smaller.
 - **Subtitles move up** while the control bar is visible, so they never collide
   with it.
-- Windows 11 rounded corners, a dark frame, and Segoe UI. (Vault uses Figtree,
-  which isn't bundled here.)
+- Windows 11 rounded corners and a dark frame.
 
 ## Features
 
@@ -55,34 +55,56 @@ That lets the controls sit on the picture instead of in a separate toolbar.
    ```
    Or do it by hand: download `mpv-dev-x86_64-*.7z` from
    <https://github.com/shinchiro/mpv-winbuild-cmake/releases>, then put
-   `libmpv-2.dll` next to `lumen.exe`.
+   `libmpv-2.dll` next to `open-preview.exe`.
 3. Run it:
    ```powershell
    cargo run --release -- "C:\path\to\movie.mkv"
    ```
 
 libmpv is loaded at runtime, so building needs no import libraries and no
-pkg-config. If the DLL is missing, Lumen shows a screen that names the file it
+pkg-config. If the DLL is missing, Open Preview shows a screen that names the file it
 needs.
 
 Release builds have no console window. To see mpv's log, run a debug build
-(`cargo run`) or set `LUMEN_MPV_LOG=all=v`.
+(`cargo run`) or set `OPEN_PREVIEW_MPV_LOG=all=v`.
 
 ## Installer (MSI)
 
-`scripts/build-msi.sh` cross-compiles `lumen.exe` from Linux and packages
-`dist/Lumen-<version>-x64.msi` with msitools' `wixl`. You need mingw-w64,
+`scripts/build-msi.sh` cross-compiles `open-preview.exe` from Linux and packages
+`dist/Open-Preview-<version>-x64.msi` with msitools' `wixl`. You need mingw-w64,
 msitools, 7z and the `x86_64-pc-windows-gnu` Rust target. The script fetches
 the latest libmpv from the official SourceForge mirror. The installer:
 
-- installs to `C:\Program Files\Lumen` for all users and adds a Start menu
+- installs to `C:\Program Files\Open Preview` for all users and adds a Start menu
   shortcut;
-- adds Lumen to Explorer's "Open with" menu for common video and audio types,
-  without changing your current default player;
-- upgrades older versions in place. Uninstall it from Settings → Apps.
+- adds Open Preview to Explorer's "Open with" menu for common video and audio
+  types, and registers it with Windows' Default apps so it can be chosen as
+  the default player;
+- installs a thumbnail handler for videos (see below);
+- upgrades older versions in place, including Lumen, the earlier name.
+  Uninstall it from Settings → Apps.
 
 The MSI isn't code-signed, so SmartScreen warns on first run. Choose
 **More info → Run anyway**.
+
+## Default player and thumbnails
+
+Windows doesn't let an app make itself the default player, so the installer
+registers Open Preview with Default apps and the app asks. While it isn't the
+default, the empty window shows **Make Open Preview your default video player**,
+which opens Settings at Open Preview's page; one **Set default** there covers
+every video type.
+
+Once it's the default, Explorer gets video thumbnails from Open Preview,
+including for formats Windows can't thumbnail itself, like MKV and WebM. The
+handler (`thumbnailer/`, a small COM DLL) runs `open-preview.exe --thumbnail
+<file> <size>`, which renders a frame 15% into the video with libmpv's
+software renderer, with no window and no GPU. The decoding happens in that
+child process, so a broken file can't take Explorer down. Thumbnails Explorer
+cached before the switch may linger; Disk Cleanup → Thumbnails clears them.
+
+`cargo run --example probe -p open-preview-thumbs` (on Windows, after
+installing) fetches a thumbnail through COM the way Explorer does, for testing.
 
 ## Linux
 
@@ -117,7 +139,10 @@ Install `libmpv-dev`, or just `libmpv2`, then run `cargo run -- video.mp4`.
 | `src/player.rs` | Mirrors mpv's properties (time, tracks, chapters…) and wraps its commands |
 | `src/app.rs` | Window behavior, title bar, auto-hide logic, pin, menus, input handling |
 | `src/ui/` | Vector icons, theme, custom widgets (seek bar, sliders, menus) |
-| `src/platform.rs` | Windows: DWM rounded corners, aspect-locked resizing, work-area lookup |
+| `src/platform.rs` | Windows: rounded corners, aspect-locked resizing, default-player check |
+| `src/thumbnail.rs` | `--thumbnail` mode: one frame to stdout via libmpv's software renderer |
+| `thumbnailer/` | Explorer thumbnail handler (COM DLL) that calls `--thumbnail` |
+| `installer/` | WiX source for the MSI and the third-party notices it ships |
 
 ## Known limitations
 
@@ -127,4 +152,15 @@ Install `libmpv-dev`, or just `libmpv2`, then run `cargo run -- video.mp4`.
   interop, or `*-copy` hardware decoding. Rendering straight through D3D11 would
   need mpv's (still experimental) D3D11 render API or a wgpu backend.
 - There are no file associations or installer yet. You can still drag files onto
-  `lumen.exe` or use "Open with".
+  `open-preview.exe` or use "Open with".
+
+## License
+
+Open Preview is released under the [0BSD license](LICENSE): do anything you
+like with it, no attribution required.
+
+Two bundled pieces carry their own terms. Figtree (`assets/fonts`) is under the
+SIL Open Font License 1.1. The Windows installer ships a prebuilt libmpv, which
+is GPL-licensed; that affects anyone redistributing the installer, not the
+source in this repository, which only loads libmpv at run time. See
+`installer/THIRD-PARTY-NOTICES.txt`.

@@ -22,36 +22,21 @@ pub fn semibold() -> FontFamily {
     FontFamily::Name("semibold".into())
 }
 
-/// Uses Segoe UI on Windows so the player feels native; egui's bundled
-/// fonts stay as fallbacks for symbols and other scripts.
+/// Figtree, the typeface Vault and Open Darkroom use, bundled so it looks the
+/// same on every machine. egui's own fonts stay behind it as fallbacks.
 pub fn install(ctx: &egui::Context) {
     let mut fonts = FontDefinitions::default();
-    #[cfg(windows)]
-    let (regular, bold) = {
-        let dir = std::env::var("WINDIR").unwrap_or_else(|_| "C:\\Windows".into());
-        let read = |f: &str| std::fs::read(format!("{dir}\\Fonts\\{f}")).ok();
-        (read("segoeui.ttf"), read("seguisb.ttf"))
-    };
-    #[cfg(not(windows))]
-    let (regular, bold) = {
-        let read = |f: &str| std::fs::read(f).ok();
-        (
-            read("/usr/share/fonts/truetype/inter/Inter-Regular.ttf"),
-            read("/usr/share/fonts/truetype/inter/Inter-SemiBold.ttf"),
-        )
-    };
+    let regular = include_bytes!("../../assets/fonts/Figtree-Regular.ttf");
+    let semibold_face = include_bytes!("../../assets/fonts/Figtree-SemiBold.ttf");
+    fonts.font_data.insert("figtree".into(), FontData::from_static(regular).into());
+    fonts.font_data.insert("figtree-semibold".into(), FontData::from_static(semibold_face).into());
 
-    let prop = fonts.families.entry(FontFamily::Proportional).or_default().clone();
-    let mut semibold_family = prop.clone();
-    if let Some(data) = regular {
-        fonts.font_data.insert("ui".into(), FontData::from_owned(data).into());
-        fonts.families.get_mut(&FontFamily::Proportional).unwrap().insert(0, "ui".into());
-        semibold_family.insert(0, "ui".into());
-    }
-    if let Some(data) = bold {
-        fonts.font_data.insert("ui-semibold".into(), FontData::from_owned(data).into());
-        semibold_family.insert(0, "ui-semibold".into());
-    }
+    let fallbacks = fonts.families.entry(FontFamily::Proportional).or_default().clone();
+    let mut proportional = vec!["figtree".to_string()];
+    proportional.extend(fallbacks.iter().cloned());
+    let mut semibold_family = vec!["figtree-semibold".to_string()];
+    semibold_family.extend(fallbacks);
+    fonts.families.insert(FontFamily::Proportional, proportional);
     fonts.families.insert(semibold(), semibold_family);
     ctx.set_fonts(fonts);
 
@@ -65,6 +50,23 @@ pub fn install(ctx: &egui::Context) {
         style.visuals.window_stroke = egui::Stroke::new(1.0, BG5);
         style.visuals.window_corner_radius = egui::CornerRadius::same(7);
         style.visuals.popup_shadow = egui::Shadow { offset: [0, 6], blur: 20, spread: 0, color: Color32::from_black_alpha(128) };
+
+        // Scrollbars as Vault draws them: beside the content rather than over
+        // it, a 6px rounded thumb in COLOR5 (COLOR4 when hovered), no track.
+        let mut scroll = egui::style::ScrollStyle::solid();
+        scroll.bar_width = 6.0;
+        scroll.bar_inner_margin = 4.0;
+        scroll.bar_outer_margin = 2.0;
+        scroll.dormant_background_opacity = 0.0;
+        scroll.active_background_opacity = 0.0;
+        scroll.interact_background_opacity = 0.0;
+        scroll.dormant_handle_opacity = 1.0;
+        scroll.active_handle_opacity = 1.0;
+        scroll.interact_handle_opacity = 1.0;
+        style.spacing.scroll = scroll;
+        style.visuals.widgets.inactive.bg_fill = COLOR5;
+        style.visuals.widgets.hovered.bg_fill = COLOR4;
+        style.visuals.widgets.active.bg_fill = COLOR4;
         style.interaction.tooltip_delay = 0.4;
     });
 }

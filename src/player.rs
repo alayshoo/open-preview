@@ -159,7 +159,7 @@ impl Player {
                         self.last_error = Some(e);
                     }
                 }
-                Event::VideoReconfig => {}
+                Event::VideoReconfig | Event::PlaybackRestart => {}
                 Event::Property { id, value } => self.apply(id, value),
             }
         }

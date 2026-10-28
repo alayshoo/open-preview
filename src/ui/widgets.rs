@@ -231,7 +231,7 @@ impl SeekBar<'_> {
         let p = ui.painter();
         let rails = Rect::from_center_size(rect.center(), vec2(width, rails_h));
         // The soft shadow that keeps a pale bar readable over a pale frame.
-        p.add(Shadow { offset: [0, 0], blur: 12, spread: 0, color: Color32::from_black_alpha(0x40) }.as_shape(rails, CornerRadius::same(1)));
+        p.add(Shadow { offset: [0, 0], blur: 12, spread: 0, color: Color32::from_black_alpha(0x40) }.as_shape(rails, CornerRadius::same(PIECE_RADIUS as u8)));
 
         let mut cuts: Vec<f64> = self.chapters.iter().map(|c| c.start).filter(|t| *t > 0.0 && *t < dur).collect();
         cuts.sort_by(f64::total_cmp);
@@ -248,15 +248,15 @@ impl SeekBar<'_> {
 
             let played_end = b.min(split_x - HEAD_GAP);
             if played_end > a {
-                horizontal_gradient(p, Rect::from_x_y_ranges(a..=played_end, rails.y_range()), fill_at(a, left, width), fill_at(played_end, left, width));
+                played_piece(ui, Rect::from_x_y_ranges(a..=played_end, rails.y_range()), left, width);
             }
             let ahead = a.max(split_x + HEAD_GAP);
             if b > ahead {
-                p.rect_filled(Rect::from_x_y_ranges(ahead..=b, rails.y_range()), 1.0, theme::COLOR3);
+                track_piece(p, Rect::from_x_y_ranges(ahead..=b, rails.y_range()), theme::COLOR3);
                 // What's buffered: a hint, so barely there.
                 let loaded_end = b.min(loaded_x);
                 if self.buffered > position && loaded_end > ahead {
-                    p.rect_filled(Rect::from_x_y_ranges(ahead..=loaded_end, rails.y_range()), 1.0, theme::COLOR2.gamma_multiply(0.45));
+                    track_piece(p, Rect::from_x_y_ranges(ahead..=loaded_end, rails.y_range()), theme::COLOR2.gamma_multiply(0.45));
                 }
             }
         }
@@ -288,21 +288,37 @@ impl SeekBar<'_> {
     }
 }
 
-/// The played fill's colour at `x`: `COLOR4` at the start of the track
-/// brightening to `COLOR1` at its end.
-fn fill_at(x: f32, left: f32, width: f32) -> Color32 {
-    lerp_color(theme::COLOR4, theme::COLOR1, (x - left) / width)
+/// Corner radius of every piece of track, played or not.
+const PIECE_RADIUS: f32 = 2.0;
+
+/// A piece of track behind the head: a rounded rect shaded from `COLOR4` at
+/// the start of the whole track to `COLOR1` at its end. The shading comes from
+/// a gradient texture sampled over this piece's stretch of the track, so the
+/// piece keeps the tessellator's rounded, anti-aliased corners.
+fn played_piece(ui: &Ui, piece: Rect, track_left: f32, track_width: f32) {
+    let u = |x: f32| ((x - track_left) / track_width).clamp(0.0, 1.0);
+    let uv = Rect::from_min_max(pos2(u(piece.left()), 0.0), pos2(u(piece.right()), 1.0));
+    let texture = played_fill_texture(ui.ctx());
+    ui.painter().add(RectShape::filled(piece, PIECE_RADIUS, Color32::WHITE).with_texture(texture, uv));
 }
 
-fn horizontal_gradient(p: &Painter, r: Rect, from: Color32, to: Color32) {
-    let mut mesh = Mesh::default();
-    mesh.colored_vertex(r.left_top(), from);
-    mesh.colored_vertex(r.right_top(), to);
-    mesh.colored_vertex(r.left_bottom(), from);
-    mesh.colored_vertex(r.right_bottom(), to);
-    mesh.add_triangle(0, 1, 2);
-    mesh.add_triangle(1, 2, 3);
-    p.add(Shape::mesh(mesh));
+fn track_piece(p: &Painter, piece: Rect, color: Color32) {
+    p.rect_filled(piece, PIECE_RADIUS, color);
+}
+
+/// `COLOR4` → `COLOR1`, mixed in sRGB like the CSS `color-mix` Vault uses.
+fn played_fill_texture(ctx: &egui::Context) -> egui::TextureId {
+    let id = Id::unique("played-fill-texture");
+    if let Some(handle) = ctx.data(|d| d.get_temp::<egui::TextureHandle>(id)) {
+        return handle.id();
+    }
+    const N: usize = 256;
+    let pixels = (0..N).map(|i| lerp_color(theme::COLOR4, theme::COLOR1, i as f32 / (N - 1) as f32)).collect();
+    let image = egui::ColorImage::new([N, 1], pixels);
+    let handle = ctx.load_texture("played-fill", image, egui::TextureOptions::LINEAR);
+    let tex = handle.id();
+    ctx.data_mut(|d| d.insert_temp(id, handle));
+    tex
 }
 
 /// What's under the pointer, above the bar: the chapter's name over the
@@ -333,30 +349,63 @@ fn hover_card(p: &Painter, track: Rect, x: f32, t: f64, chapter: Option<&str>) {
     }
 }
 
-/// Horizontal slider over 0..=`max`. Returns the new value when changed.
+/// Vault's volume slider: the timeline's material at the size a volume needs.
+/// Two pieces either side of a 12px gap, the played one shaded the same way,
+/// and a head that grows on hover (5×18) and more while held (12×22).
+///
+/// A press within 20px of the head takes hold of it where it is; anywhere else
+/// the value jumps to the pointer. Returns the new value while it changes.
 pub fn slider(ui: &mut Ui, rect: Rect, id: Id, value: f64, max: f64) -> Option<f64> {
+    const NEAR_HEAD: f32 = 20.0;
     let resp = ui.interact(rect, id, Sense::click_and_drag());
-    let grow = ui.ctx().animate_bool_with_time(id.with("grow"), resp.hovered() || resp.dragged(), 0.12);
-    let track = Rect::from_center_size(rect.center(), vec2(rect.width() - 10.0, 4.0));
+    let ctx = ui.ctx().clone();
+    let control = Rect::from_center_size(rect.center(), vec2(rect.width(), 22.0));
+    let (left, width) = (control.left(), control.width().max(5.0));
     let frac = (value / max).clamp(0.0, 1.0) as f32;
-    let p = ui.painter();
-    let r = CornerRadius::same(255);
-    p.rect_filled(track, r, Color32::from_white_alpha(56));
-    let x = track.left() + track.width() * frac;
-    p.rect_filled(Rect::from_min_max(track.min, pos2(x, track.max.y)), r, Color32::WHITE);
-    let knob = 3.0 + 3.5 * grow;
-    p.circle_filled(pos2(x, track.center().y), knob, Color32::WHITE);
+    let head_x = left + 2.0 + frac * (width - 4.0);
 
+    let held = resp.is_pointer_button_down_on();
+    let grab_id = id.with("grab");
     let mut out = None;
-    if let Some(pos) = resp.interact_pointer_pos().filter(|_| resp.dragged() || resp.clicked()) {
-        let f = ((pos.x - track.left()) / track.width()).clamp(0.0, 1.0) as f64;
-        out = Some((f * max).round());
-    }
-    if resp.hovered() {
-        let scroll = ui.input(|i| i.smooth_scroll_delta.y);
-        if scroll.abs() > 0.5 {
-            out = Some((value + scroll.signum() as f64 * 5.0).clamp(0.0, max));
+    if let Some(pointer) = resp.interact_pointer_pos().filter(|_| held) {
+        if ctx.input(|i| i.pointer.primary_pressed()) {
+            let offset = if (pointer.x - head_x).abs() <= NEAR_HEAD { pointer.x - head_x } else { 0.0 };
+            ctx.data_mut(|d| d.insert_temp(grab_id, offset));
         }
+        let offset: f32 = ctx.data(|d| d.get_temp(grab_id)).unwrap_or(0.0);
+        let f = ((pointer.x - offset - left - 2.0) / (width - 4.0)).clamp(0.0, 1.0) as f64;
+        let next = (f * max).round();
+        if (next - value).abs() >= 1.0 {
+            out = Some(next);
+        }
+    }
+
+    let travel = |key: &str, target: f32| ctx.animate_value_with_time(id.with(key), target, 0.2);
+    let (w, h) = match (held, resp.hovered()) {
+        (true, _) => (12.0, 22.0),
+        (false, true) => (5.0, 18.0),
+        _ => (4.0, 16.0),
+    };
+    let (head_w, head_h) = (travel("head-w", w), travel("head-h", h));
+
+    let p = ui.painter();
+    let rails = Rect::from_center_size(control.center(), vec2(width, 4.0));
+    p.add(Shadow { offset: [0, 0], blur: 12, spread: 0, color: Color32::from_black_alpha(0x40) }.as_shape(rails, CornerRadius::same(PIECE_RADIUS as u8)));
+    let split = left + width * frac;
+    let played_end = split - HEAD_GAP;
+    if played_end > left {
+        played_piece(ui, Rect::from_x_y_ranges(left..=played_end, rails.y_range()), left, width);
+    }
+    let ahead = split + HEAD_GAP;
+    if control.right() > ahead {
+        track_piece(p, Rect::from_x_y_ranges(ahead..=control.right(), rails.y_range()), theme::COLOR3);
+    }
+    let head = Rect::from_center_size(pos2(head_x, control.center().y), vec2(head_w, head_h));
+    let radius = CornerRadius::same((head_w / 2.0).min(5.0).round() as u8);
+    p.add(Shadow { offset: [0, 2], blur: 8, spread: 0, color: Color32::from_black_alpha(38) }.as_shape(head, radius));
+    p.rect_filled(head, radius, theme::COLOR1);
+    if resp.hovered() || held {
+        ctx.set_cursor_icon(CursorIcon::PointingHand);
     }
     out
 }

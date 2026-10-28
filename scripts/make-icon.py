@@ -1,4 +1,4 @@
-"""Renders assets/lumen.ico at every Windows icon size.
+"""Renders assets/open-preview.ico at every Windows icon size.
 
 Same artwork as src/icon.rs (the runtime window icon), drawn on a 64-unit grid
 and rasterized per size so small icons stay crisp. Requires Pillow.
@@ -48,7 +48,7 @@ def render(n):
 
 
 if __name__ == "__main__":
-    out = pathlib.Path(__file__).resolve().parent.parent / "assets" / "lumen.ico"
+    out = pathlib.Path(__file__).resolve().parent.parent / "assets" / "open-preview.ico"
     out.parent.mkdir(exist_ok=True)
     images = [render(n) for n in SIZES]
     images[-1].save(out, sizes=[(n, n) for n in SIZES], append_images=images[:-1])

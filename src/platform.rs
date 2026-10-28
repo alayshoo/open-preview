@@ -14,6 +14,17 @@ pub fn init(_window: &impl HasWindowHandle) {}
 #[cfg(not(windows))]
 pub fn set_aspect_lock(_aspect: Option<f32>) {}
 
+/// Whether this executable is what opens `.mp4` files. `None` where the
+/// question doesn't apply (not Windows).
+#[cfg(not(windows))]
+pub fn is_default_video_player() -> Option<bool> {
+    None
+}
+
+/// Opens the system's default-apps page for this app.
+#[cfg(not(windows))]
+pub fn open_default_apps_settings() {}
+
 #[cfg(windows)]
 mod win {
     use std::ffi::c_void;
@@ -24,7 +35,11 @@ mod win {
     use windows::Win32::Graphics::Dwm::{
         DWMWA_USE_IMMERSIVE_DARK_MODE, DWMWA_WINDOW_CORNER_PREFERENCE, DWMWCP_ROUND, DwmSetWindowAttribute,
     };
-    use windows::Win32::UI::Shell::{DefSubclassProc, SetWindowSubclass};
+    use windows::Win32::UI::Shell::{
+        ASSOCF_INIT_IGNOREUNKNOWN, ASSOCSTR_EXECUTABLE, AssocQueryStringW, DefSubclassProc, SetWindowSubclass, ShellExecuteW,
+    };
+    use windows::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL;
+    use windows::core::{PWSTR, w};
     use windows::Win32::UI::WindowsAndMessaging::WM_SIZING;
 
     static ASPECT_BITS: AtomicU32 = AtomicU32::new(0);
@@ -50,6 +65,31 @@ mod win {
                 size_of_val(&dark) as u32,
             );
             let _ = SetWindowSubclass(hwnd, Some(subclass_proc), 0x4C55, 0);
+        }
+    }
+
+    /// Asks the shell which program opens `.mp4` and compares it with us.
+    /// Windows doesn't let an app make itself the default; it can only ask.
+    pub fn is_default_video_player() -> Option<bool> {
+        let mut buf = [0u16; 1024];
+        let mut len = buf.len() as u32;
+        let hr = unsafe {
+            AssocQueryStringW(ASSOCF_INIT_IGNOREUNKNOWN, ASSOCSTR_EXECUTABLE, w!(".mp4"), w!("open"), Some(PWSTR(buf.as_mut_ptr())), &mut len)
+        };
+        if hr.is_err() {
+            return Some(false);
+        }
+        let handler = String::from_utf16_lossy(&buf[..len.saturating_sub(1) as usize]);
+        let me = std::env::current_exe().ok()?;
+        Some(handler.eq_ignore_ascii_case(&me.to_string_lossy()))
+    }
+
+    /// Windows' own Default apps page for Open Preview, where one "Set
+    /// default" covers every video type the installer registered. Falls back
+    /// to the main Default apps page on older builds.
+    pub fn open_default_apps_settings() {
+        unsafe {
+            ShellExecuteW(None, w!("open"), w!("ms-settings:defaultapps?registeredAppMachine=Open%20Preview"), None, None, SW_SHOWNORMAL);
         }
     }
 

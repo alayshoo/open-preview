@@ -6,6 +6,7 @@ mod icon;
 mod mpv;
 mod platform;
 mod player;
+mod thumbnail;
 mod ui;
 
 use std::sync::Arc;
@@ -21,7 +22,7 @@ fn mpv_options(watch_later: &str) -> Vec<(&'static str, String)> {
         ("osc", "no".into()),
         ("osd-level", "0".into()),
         ("volume-max", "150".into()),
-        ("audio-client-name", "Lumen".into()),
+        ("audio-client-name", "Open Preview".into()),
         ("sub-auto", "fuzzy".into()),
         ("sub-font-size", "46".into()),
         ("sub-border-size", "2.6".into()),
@@ -31,8 +32,8 @@ fn mpv_options(watch_later: &str) -> Vec<(&'static str, String)> {
         ("cache", "auto".into()),
         ("demuxer-max-bytes", "150MiB".into()),
         ("ytdl", "yes".into()),
-        ("terminal", if cfg!(debug_assertions) || std::env::var("LUMEN_MPV_LOG").is_ok() { "yes" } else { "no" }.into()),
-        ("msg-level", std::env::var("LUMEN_MPV_LOG").unwrap_or_else(|_| "all=warn".into())),
+        ("terminal", if cfg!(debug_assertions) || std::env::var("OPEN_PREVIEW_MPV_LOG").is_ok() { "yes" } else { "no" }.into()),
+        ("msg-level", std::env::var("OPEN_PREVIEW_MPV_LOG").unwrap_or_else(|_| "all=warn".into())),
     ];
     if !watch_later.is_empty() {
         // Renamed in newer mpv; whichever the loaded build doesn't know is ignored.
@@ -46,9 +47,13 @@ fn mpv_options(watch_later: &str) -> Vec<(&'static str, String)> {
 }
 
 fn main() -> eframe::Result {
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    if args.first().map(String::as_str) == Some("--thumbnail") {
+        std::process::exit(thumbnail::run(&args[1..]));
+    }
     let files: Vec<String> = std::env::args().skip(1).filter(|a| !a.starts_with("--")).collect();
 
-    let data_dir = dirs::data_dir().map(|d| d.join("Lumen"));
+    let data_dir = dirs::data_dir().map(|d| d.join("Open Preview"));
     let watch_later = data_dir
         .as_ref()
         .map(|d| d.join("watch_later"))
@@ -62,8 +67,8 @@ fn main() -> eframe::Result {
 
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
-            .with_title("Lumen")
-            .with_app_id("lumen")
+            .with_title("Open Preview")
+            .with_app_id("open-preview")
             .with_inner_size([960.0, 540.0])
             .with_min_inner_size([240.0, 135.0])
             .with_decorations(false)
@@ -77,10 +82,10 @@ fn main() -> eframe::Result {
     };
 
     eframe::run_native(
-        "Lumen",
+        "Open Preview",
         options,
         Box::new(move |cc| match mpv {
-            Ok(mpv) => Ok(Box::new(app::LumenApp::new(cc, mpv, files))),
+            Ok(mpv) => Ok(Box::new(app::OpenPreviewApp::new(cc, mpv, files))),
             Err(message) => Ok(Box::new(app::FatalApp { message })),
         }),
     )

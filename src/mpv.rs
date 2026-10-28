@@ -39,6 +39,7 @@ pub const EVENT_START_FILE: c_int = 6;
 pub const EVENT_END_FILE: c_int = 7;
 pub const EVENT_FILE_LOADED: c_int = 8;
 pub const EVENT_VIDEO_RECONFIG: c_int = 17;
+pub const EVENT_PLAYBACK_RESTART: c_int = 21;
 pub const EVENT_PROPERTY_CHANGE: c_int = 22;
 
 pub const END_FILE_REASON_ERROR: c_int = 4;
@@ -72,6 +73,10 @@ const RENDER_PARAM_OPENGL_FBO: c_int = 3;
 const RENDER_PARAM_FLIP_Y: c_int = 4;
 const RENDER_PARAM_ADVANCED_CONTROL: c_int = 10;
 const RENDER_PARAM_BLOCK_FOR_TARGET_TIME: c_int = 12;
+const RENDER_PARAM_SW_SIZE: c_int = 17;
+const RENDER_PARAM_SW_FORMAT: c_int = 18;
+const RENDER_PARAM_SW_STRIDE: c_int = 19;
+const RENDER_PARAM_SW_POINTER: c_int = 20;
 
 const RENDER_UPDATE_FRAME: u64 = 1;
 
@@ -219,6 +224,8 @@ pub enum Event {
     FileLoaded,
     EndFile { error: Option<String> },
     VideoReconfig,
+    /// Playback (re)started after loading or seeking; a frame is on its way.
+    PlaybackRestart,
     Property { id: u64, value: PropValue },
 }
 
@@ -360,6 +367,7 @@ impl Mpv {
                 EVENT_START_FILE => Event::StartFile,
                 EVENT_FILE_LOADED => Event::FileLoaded,
                 EVENT_VIDEO_RECONFIG => Event::VideoReconfig,
+                EVENT_PLAYBACK_RESTART => Event::PlaybackRestart,
                 EVENT_END_FILE => {
                     let ef = unsafe { &*(ev.data as *const RawEventEndFile) };
                     let error = (ef.reason == END_FILE_REASON_ERROR).then(|| err_str(ef.error));
@@ -455,6 +463,41 @@ impl RenderContext {
         let update: *mut Box<dyn Fn() + Send + Sync> = Box::into_raw(Box::new(Box::new(on_update)));
         unsafe { (api().render_set_update_callback)(ctx, Some(update_trampoline), update as *mut c_void) };
         Ok(RenderContext { ctx, _proc: proc_box, update })
+    }
+
+    /// A software renderer: mpv draws frames into memory, no GPU or window.
+    /// Used for thumbnails.
+    pub fn new_sw(mpv: &Mpv) -> Result<Self, String> {
+        let api_type = cstr("sw");
+        let mut params = [
+            RenderParam { kind: RENDER_PARAM_API_TYPE, data: api_type.as_ptr() as *mut c_void },
+            RenderParam { kind: RENDER_PARAM_INVALID, data: ptr::null_mut() },
+        ];
+        let mut ctx = ptr::null_mut();
+        let rc = unsafe { (api().render_create)(&mut ctx, mpv.handle, params.as_mut_ptr()) };
+        if rc < 0 {
+            return Err(format!("mpv_render_context_create(sw) failed: {}", err_str(rc)));
+        }
+        let noop: Box<ProcAddress> = Box::new(|_| ptr::null());
+        let update: *mut Box<dyn Fn() + Send + Sync> = Box::into_raw(Box::new(Box::new(|| {})));
+        Ok(RenderContext { ctx, _proc: Box::into_raw(Box::new(noop)), update })
+    }
+
+    /// Renders the current frame as `bgr0` into `pixels`, which must hold
+    /// `stride * height` bytes; `stride` and the pointer should be 64-aligned.
+    pub fn render_sw(&self, width: i32, height: i32, stride: usize, pixels: &mut [u8]) {
+        assert!(pixels.len() >= stride * height as usize);
+        let mut size = [width as c_int, height as c_int];
+        let format = cstr("bgr0");
+        let mut stride = stride;
+        let mut params = [
+            RenderParam { kind: RENDER_PARAM_SW_SIZE, data: size.as_mut_ptr() as *mut c_void },
+            RenderParam { kind: RENDER_PARAM_SW_FORMAT, data: format.as_ptr() as *mut c_void },
+            RenderParam { kind: RENDER_PARAM_SW_STRIDE, data: &mut stride as *mut _ as *mut c_void },
+            RenderParam { kind: RENDER_PARAM_SW_POINTER, data: pixels.as_mut_ptr() as *mut c_void },
+            RenderParam { kind: RENDER_PARAM_INVALID, data: ptr::null_mut() },
+        ];
+        unsafe { (api().render_render)(self.ctx, params.as_mut_ptr()) };
     }
 
     /// True when mpv has a new frame for us.

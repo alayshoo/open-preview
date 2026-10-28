@@ -1,6 +1,6 @@
 # Downloads the latest prebuilt libmpv for Windows (shinchiro's mpv-winbuild-cmake
 # builds, the same ones linked from mpv.io) and copies libmpv-2.dll next to the
-# Lumen executables.
+# Open Preview executables.
 #
 # Usage (from the repo root):  powershell -ExecutionPolicy Bypass -File scripts\fetch-libmpv.ps1
 # Pass -V3 for the build optimized for newer CPUs (x86-64-v3, roughly Haswell / Zen and later).
@@ -14,11 +14,11 @@ New-Item -ItemType Directory -Force -Path $work | Out-Null
 
 Write-Host "Looking up the latest libmpv build..."
 $release = Invoke-RestMethod -Uri "https://api.github.com/repos/shinchiro/mpv-winbuild-cmake/releases/latest" `
-    -Headers @{ "User-Agent" = "lumen-setup" }
+    -Headers @{ "User-Agent" = "open-preview-setup" }
 $pattern = if ($V3) { '^mpv-dev-x86_64-v3-\d{8}-git-.*\.7z$' } else { '^mpv-dev-x86_64-\d{8}-git-.*\.7z$' }
 $asset = $release.assets | Where-Object { $_.name -match $pattern } | Select-Object -First 1
 if (-not $asset) {
-    throw "No asset matching $pattern in release $($release.tag_name). Download mpv-dev-x86_64-*.7z manually from https://github.com/shinchiro/mpv-winbuild-cmake/releases and extract libmpv-2.dll next to lumen.exe."
+    throw "No asset matching $pattern in release $($release.tag_name). Download mpv-dev-x86_64-*.7z manually from https://github.com/shinchiro/mpv-winbuild-cmake/releases and extract libmpv-2.dll next to open-preview.exe."
 }
 
 $archive = Join-Path $work $asset.name

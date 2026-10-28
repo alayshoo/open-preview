@@ -53,7 +53,7 @@ struct Video {
     error: Option<String>,
 }
 
-pub struct LumenApp {
+pub struct OpenPreviewApp {
     player: Player,
     video: Arc<Mutex<Video>>,
     get_proc: Option<Arc<ProcAddress>>,
@@ -73,6 +73,10 @@ pub struct LumenApp {
     show_help: bool,
     /// Last `sub-pos` sent to mpv; subtitles rise above the control bar.
     sub_pos: f64,
+    /// Whether we're the default video player (Windows only); re-checked when
+    /// the window regains focus, e.g. on the way back from Settings.
+    is_default_player: Option<bool>,
+    was_focused: bool,
     /// Size of the open menu last frame; see `show_menu`.
     menu_size: Option<Vec2>,
     press_on_edge: bool,
@@ -82,7 +86,7 @@ pub struct LumenApp {
     pending_files: Vec<String>,
 }
 
-impl LumenApp {
+impl OpenPreviewApp {
     pub fn new(cc: &eframe::CreationContext<'_>, mpv: Mpv, files: Vec<String>) -> Self {
         theme::install(&cc.egui_ctx);
         platform::init(cc);
@@ -98,7 +102,7 @@ impl LumenApp {
 
         let player = Player::new(Arc::new(mpv));
 
-        LumenApp {
+        OpenPreviewApp {
             player,
             video: Arc::default(),
             get_proc: cc.get_proc_address.clone(),
@@ -115,6 +119,8 @@ impl LumenApp {
             show_help: false,
             sub_pos: 100.0,
             menu_size: None,
+            is_default_player: platform::is_default_video_player(),
+            was_focused: true,
             press_on_edge: false,
             wheel_accum: 0.0,
             window_title: String::new(),
@@ -444,14 +450,31 @@ impl LumenApp {
         let y = tile.bottom() + if small { 20.0 } else { 28.0 };
         p.text(pos2(c.x, y), Align2::CENTER_CENTER, "Drop a video to start", FontId::proportional(if small { 13.0 } else { 15.0 }), theme::COLOR2);
         p.text(pos2(c.x, y + 22.0), Align2::CENTER_CENTER, "or click anywhere to browse  ·  Ctrl+O", FontId::proportional(12.0), theme::COLOR3);
+        let mut next_y = y + 46.0;
         if let Some(err) = &self.player.last_error {
-            p.text(pos2(c.x, y + 46.0), Align2::CENTER_CENTER, format!("Couldn't play that file: {err}"), FontId::proportional(12.0), theme::COLOR2);
+            p.text(pos2(c.x, next_y), Align2::CENTER_CENTER, format!("Couldn't play that file: {err}"), FontId::proportional(12.0), theme::COLOR2);
+            next_y += 24.0;
+        }
+        if self.is_default_player == Some(false) && !small {
+            let galley = p.layout_no_wrap("Make Open Preview your default video player".into(), FontId::proportional(12.0), theme::COLOR3);
+            let rect = Rect::from_center_size(pos2(c.x, next_y + 8.0), galley.size());
+            let resp = ui.interact(rect.expand(4.0), Id::unique("make-default"), Sense::click());
+            let color = if resp.hovered() { theme::COLOR1 } else { theme::COLOR3 };
+            p.galley(rect.min, galley, color);
+            if resp.hovered() {
+                p.hline(rect.x_range(), rect.bottom() + 1.0, Stroke::new(1.0, color));
+                ui.ctx().set_cursor_icon(CursorIcon::PointingHand);
+            }
+            if resp.clicked() {
+                platform::open_default_apps_settings();
+            }
         }
     }
 
-    /// Vault's title bar: the help button leading, the title centred against
-    /// the window, and the window controls trailing. Solid over a video; on the
-    /// empty screen it drops the fill and rule, as Vault's picker does.
+    /// Vault's title bar layout (the help button leading, the title centred
+    /// against the window, the window controls trailing) over a black-to-clear
+    /// gradient, so the video still shows through it. The empty screen has
+    /// nothing under the bar to fade, so it has no gradient.
     fn top_bar(&mut self, ui: &mut Ui, ctx: &egui::Context, screen: Rect) {
         let width = screen.width();
         let fs = Self::is_fullscreen(ctx);
@@ -460,8 +483,7 @@ impl LumenApp {
         let bar = Rect::from_min_size(screen.min, vec2(width, TOP_BAR_H));
         self.top_rect = bar;
         if self.player.has_media() {
-            p.rect_filled(bar, 0.0, theme::BG2);
-            p.hline(bar.x_range(), bar.bottom() - 0.5, Stroke::new(1.0, theme::BG4));
+            widgets::vertical_gradient(&p, Rect::from_min_size(screen.min, vec2(width, 110.0)), 0.72, 0.0);
         }
 
         // Window controls, right to left: close, maximise, minimise, pin.
@@ -504,11 +526,14 @@ impl LumenApp {
         // running under them.
         let max_w = width - 340.0;
         if max_w > 40.0 {
-            let title = if self.player.has_media() && !self.player.title.is_empty() { self.player.title.as_str() } else { "Lumen" };
-            let mut job = LayoutJob::simple_singleline(title.to_string(), FontId::proportional(13.0), theme::COLOR3);
+            let title = if self.player.has_media() && !self.player.title.is_empty() { self.player.title.as_str() } else { "Open Preview" };
+            // Vault's dim title sits on a solid bar; over video it needs the
+            // next step up the ramp to stay legible.
+            let color = if self.player.has_media() { theme::COLOR2 } else { theme::COLOR3 };
+            let mut job = LayoutJob::simple_singleline(title.to_string(), FontId::proportional(13.0), color);
             job.wrap = TextWrapping { max_width: max_w, max_rows: 1, break_anywhere: true, overflow_character: Some('…') };
             let galley = p.layout_job(job);
-            p.galley(bar.center() - galley.size() / 2.0, galley, theme::COLOR3);
+            p.galley(bar.center() - galley.size() / 2.0, galley, color);
         }
     }
 
@@ -641,7 +666,9 @@ impl LumenApp {
         if widgets::icon_button(ui, prev(btn), fs_icon, Id::unique("fs"), "Fullscreen (F)").clicked() {
             self.toggle_fullscreen(ctx);
         }
-        let menu_btn = |ui: &mut Ui, r: Rect, menu: Menu, resp: egui::Response, current: &mut Option<(Menu, Rect)>| {
+        // `shape` is what the button draws, so the open-menu ring follows it: a
+        // circle around an icon, a pill around the speed label.
+        let menu_btn = |ui: &mut Ui, r: Rect, shape: Rect, menu: Menu, resp: egui::Response, current: &mut Option<(Menu, Rect)>| {
             if resp.clicked() {
                 *current = match current {
                     Some((m, _)) if *m == menu => None,
@@ -651,28 +678,30 @@ impl LumenApp {
             if let Some((m, anchor)) = current
                 && *m == menu {
                     *anchor = r;
-                    ui.painter().circle_stroke(r.center(), r.height() / 2.0 - 1.0, Stroke::new(1.0, Color32::from_white_alpha(60)));
+                    let ring = shape.shrink(1.0);
+                    ui.painter().rect_stroke(ring, ring.height() / 2.0, Stroke::new(1.0, theme::COLOR4), StrokeKind::Inside);
                 }
         };
         if !tiny {
             let r = prev(btn);
             if r.left() > time_end + 8.0 {
                 let resp = widgets::icon_button(ui, r, Icon::Subtitles, Id::unique("subs"), "Subtitles (S)");
-                menu_btn(ui, r, Menu::Subtitles, resp, &mut self.menu);
+                menu_btn(ui, r, r, Menu::Subtitles, resp, &mut self.menu);
             }
         }
         if !compact && self.player.tracks_of(TrackKind::Audio).count() > 0 {
             let r = prev(btn);
             if r.left() > time_end + 8.0 {
                 let resp = widgets::icon_button(ui, r, Icon::Audio, Id::unique("audio"), "Audio track (A)");
-                menu_btn(ui, r, Menu::Audio, resp, &mut self.menu);
+                menu_btn(ui, r, r, Menu::Audio, resp, &mut self.menu);
             }
         }
         if !compact {
             let r = prev(52.0);
             if r.left() > time_end + 8.0 {
-                let resp = widgets::text_button(ui, r.shrink2(vec2(2.0, 4.0)), &speed_label(self.player.speed), Id::unique("speed"));
-                menu_btn(ui, r, Menu::Speed, resp, &mut self.menu);
+                let pill = r.shrink2(vec2(2.0, 4.0));
+                let resp = widgets::text_button(ui, pill, &speed_label(self.player.speed), Id::unique("speed"));
+                menu_btn(ui, r, pill, Menu::Speed, resp, &mut self.menu);
             }
         }
     }
@@ -829,8 +858,8 @@ impl LumenApp {
             ("↑ / ↓ / Wheel", "Volume"),
             ("M", "Mute"),
             ("S / A", "Cycle subtitles / audio"),
-            ("Z / X", "Subtitle delay ∓0.1s"),
-            ("[ / ] / ⌫", "Speed down / up / reset"),
+            ("Z / X", "Subtitle delay −/+ 0.1s"),
+            ("[ / ] / Backspace", "Speed down / up / reset"),
             ("F / Double-click", "Fullscreen"),
             ("P", "Keep on top"),
             ("PgUp / PgDn", "Previous / next in playlist"),
@@ -873,7 +902,7 @@ impl LumenApp {
     }
 }
 
-impl eframe::App for LumenApp {
+impl eframe::App for OpenPreviewApp {
     fn ui(&mut self, root: &mut Ui, _frame: &mut eframe::Frame) {
         let ctx = root.ctx().clone();
         let screen = root.max_rect();
@@ -888,9 +917,9 @@ impl eframe::App for LumenApp {
             self.fit_window_to_video(&ctx);
         }
         let title = if self.player.has_media() && !self.player.title.is_empty() {
-            format!("{} — Lumen", self.player.title)
+            format!("{} — Open Preview", self.player.title)
         } else {
-            "Lumen".to_string()
+            "Open Preview".to_string()
         };
         if title != self.window_title {
             ctx.send_viewport_cmd(ViewportCommand::Title(title.clone()));
@@ -898,6 +927,12 @@ impl eframe::App for LumenApp {
         }
 
         self.handle_input(&ctx);
+
+        let focused = ctx.input(|i| i.viewport().focused.unwrap_or(true));
+        if focused && !self.was_focused {
+            self.is_default_player = platform::is_default_video_player();
+        }
+        self.was_focused = focused;
 
         let has_media = self.player.has_media();
         let fullscreen = Self::is_fullscreen(&ctx);
@@ -1051,7 +1086,7 @@ impl eframe::App for FatalApp {
         p.text(
             c - vec2(0.0, 10.0),
             Align2::CENTER_CENTER,
-            format!("Place {} next to the Lumen executable.", crate::mpv::library_hint()),
+            format!("Place {} next to the Open Preview executable.", crate::mpv::library_hint()),
             FontId::proportional(14.0),
             theme::TEXT_DIM,
         );
