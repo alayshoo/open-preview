@@ -21,6 +21,10 @@ use crate::ui::widgets::{self, SeekBar, SeekEvent, WindowGlyph};
 
 /// Seconds of pointer inactivity before the controls fade out.
 const HIDE_AFTER: f64 = 2.2;
+/// mpv's `sub-font-size`: subtitle size in pixels for a window 720 px tall.
+pub const SUB_FONT_SIZE: f64 = 46.0;
+/// The smallest subtitles get, in points, however small the window.
+const MIN_SUB_SIZE: f64 = 24.0;
 /// Title bar window controls: Open Darkroom's 36×28 buttons, 2px apart, kept
 /// the same distance from the window's top and side edges.
 const CONTROL_W: f32 = 36.0;
@@ -51,6 +55,41 @@ enum Menu {
     Subtitles,
     Audio,
     Speed,
+    /// What the control row had no room for.
+    More,
+}
+
+/// The optional parts of the control row, in no particular order; see
+/// `bottom_bar` for the priority.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Slot {
+    Mute,
+    Volume,
+    Skip,
+    Playlist,
+    Duration,
+    Subs,
+    Audio,
+    Speed,
+    Help,
+}
+
+impl Slot {
+    /// Left out of the row, these move into the More menu. The rest have
+    /// other ways in: the seek bar, the wheel, the keyboard.
+    fn in_more(self) -> bool {
+        matches!(self, Slot::Subs | Slot::Audio | Slot::Speed | Slot::Help)
+    }
+
+    /// The button that opens `menu`.
+    fn of(menu: Menu) -> Option<Slot> {
+        match menu {
+            Menu::Subtitles => Some(Slot::Subs),
+            Menu::Audio => Some(Slot::Audio),
+            Menu::Speed => Some(Slot::Speed),
+            Menu::More => None,
+        }
+    }
 }
 
 #[derive(Default)]
@@ -76,6 +115,8 @@ pub struct OpenPreviewApp {
     top_rect: Rect,
     bottom_rect: Rect,
     menu: Option<(Menu, Rect)>,
+    /// Controls the row had no room for this frame, offered under More.
+    more: Vec<Slot>,
     scrubbing: Option<f64>,
     last_scrub_sent: f64,
     toast: Option<(String, f64)>,
@@ -86,6 +127,9 @@ pub struct OpenPreviewApp {
     show_help: bool,
     /// Last `sub-pos` sent to mpv; subtitles ease up above the control bar.
     sub_pos: f64,
+    /// Last `sub-scale` sent to mpv: the user's size, raised in a small
+    /// window; see `MIN_SUB_SIZE`.
+    sub_scale: f64,
     /// Whether we're the default video player (Windows only); re-checked when
     /// the window regains focus, e.g. on the way back from Settings.
     is_default_player: Option<bool>,
@@ -116,7 +160,6 @@ impl OpenPreviewApp {
         mpv.set_wakeup_callback(move || ctx.request_repaint());
         mpv.set_double("volume", settings.volume);
         mpv.set_flag("mute", settings.muted);
-        mpv.set_double("sub-scale", settings.sub_scale);
 
         let player = Player::new(Arc::new(mpv));
 
@@ -129,6 +172,7 @@ impl OpenPreviewApp {
             top_rect: Rect::NOTHING,
             bottom_rect: Rect::NOTHING,
             menu: None,
+            more: Vec::new(),
             scrubbing: None,
             last_scrub_sent: 0.0,
             toast: None,
@@ -136,6 +180,7 @@ impl OpenPreviewApp {
             pinned: false,
             show_help: false,
             sub_pos: 100.0,
+            sub_scale: 0.0,
             menu_size: None,
             is_default_player: platform::is_default_video_player(),
             was_focused: true,
@@ -631,8 +676,6 @@ impl OpenPreviewApp {
 
     fn bottom_bar(&mut self, ui: &mut Ui, ctx: &egui::Context, screen: Rect) {
         let width = screen.width();
-        let compact = width < 620.0;
-        let tiny = width < 400.0;
         let p = ui.painter().clone();
         widgets::vertical_gradient(&p, Rect::from_min_max(pos2(screen.left(), screen.bottom() - 160.0), screen.max), 0.0, 0.86);
 
@@ -668,11 +711,64 @@ impl OpenPreviewApp {
             }
         }
 
+        // Play, the current time and maximize always show. The rest come in
+        // by priority while they fit, measured from the real widths rather
+        // than fixed breakpoints, and the menus left out go under "More".
         let btn = 36.0;
+        let gap = 2.0;
+        let one = btn + gap;
+        let font = FontId::proportional(13.5);
+        let measure = |text: String| p.layout_no_wrap(text, font.clone(), theme::TEXT).size().x;
+        // The longest time this file shows, in its widest digit, so the row
+        // doesn't reshuffle as the clock ticks.
+        let widest = ('0'..='9').max_by(|a, b| measure(a.to_string()).total_cmp(&measure(b.to_string()))).unwrap_or('0');
+        let longest = format_time(self.player.duration.max(self.player.time_pos)).replace(|c: char| c.is_ascii_digit(), &widest.to_string());
+        let sign = if self.settings.show_remaining { "-" } else { "" };
+        let room = width - (10.0 + 40.0 + gap) - (8.0 + measure(format!("{sign}{longest}")) + 8.0) - (btn + 10.0);
+        // In order of priority.
+        let mut wanted = vec![(Slot::Mute, one), (Slot::Subs, one), (Slot::Speed, 52.0 + gap)];
+        if self.player.tracks_of(TrackKind::Audio).count() > 0 {
+            wanted.push((Slot::Audio, one));
+        }
+        if self.player.playlist_count > 1 {
+            wanted.push((Slot::Playlist, 2.0 * one));
+        }
+        wanted.extend([(Slot::Volume, 84.0 + gap), (Slot::Skip, 2.0 * one)]);
+        if self.player.duration > 0.0 {
+            wanted.push((Slot::Duration, measure(format!("  /  {longest}"))));
+        }
+        wanted.push((Slot::Help, one));
+        // Greedy, so a narrow item still comes in after a wide one didn't fit.
+        let fit = |mut left: f32| -> Vec<Slot> {
+            wanted
+                .iter()
+                .filter(|&&(_, w)| {
+                    let fits = w <= left;
+                    if fits {
+                        left -= w;
+                    }
+                    fits
+                })
+                .map(|&(slot, _)| slot)
+                .collect()
+        };
+        let left_out = |shown: &[Slot]| -> Vec<Slot> {
+            wanted.iter().map(|&(slot, _)| slot).filter(|slot| slot.in_more() && !shown.contains(slot)).collect()
+        };
+        let mut shown = fit(room);
+        if !left_out(&shown).is_empty() {
+            shown = fit(room - one);
+        }
+        self.more = left_out(&shown);
+        if self.more.is_empty() && matches!(self.menu, Some((Menu::More, _))) {
+            self.menu = None;
+        }
+        let show = |slot: Slot| shown.contains(&slot);
+
         let mut x = screen.left() + 10.0;
         let mut next = |w: f32| {
             let r = Rect::from_min_size(pos2(x, row_y - btn / 2.0), vec2(w, btn));
-            x += w + 2.0;
+            x += w + gap;
             r
         };
 
@@ -687,7 +783,7 @@ impl OpenPreviewApp {
         if widgets::icon_button(ui, r, play_icon, Id::unique("play"), "").clicked() {
             self.toggle_pause(ctx);
         }
-        if !compact {
+        if show(Slot::Skip) {
             if widgets::icon_button(ui, next(btn), Icon::Back10, Id::unique("back10"), "Back 10s (J)").clicked() {
                 self.player.seek_relative(-10.0);
             }
@@ -695,7 +791,7 @@ impl OpenPreviewApp {
                 self.player.seek_relative(10.0);
             }
         }
-        if self.player.playlist_count > 1 && !tiny {
+        if show(Slot::Playlist) {
             if widgets::icon_button(ui, next(btn), Icon::Prev, Id::unique("prev"), "Previous (PgUp)").clicked() {
                 self.player.mpv.cmd(&["playlist-prev"]);
             }
@@ -703,7 +799,7 @@ impl OpenPreviewApp {
                 self.player.mpv.cmd(&["playlist-next"]);
             }
         }
-        if !tiny {
+        if show(Slot::Mute) {
             let vol_icon = match (self.player.muted, self.player.volume) {
                 (true, _) => Icon::Muted,
                 (_, v) if v <= 0.0 => Icon::Muted,
@@ -713,13 +809,13 @@ impl OpenPreviewApp {
             if widgets::icon_button(ui, next(btn), vol_icon, Id::unique("mute"), "Mute (M)").clicked() {
                 self.toggle_mute(ctx);
             }
-            if !compact {
-                let shown = if self.player.muted { 0.0 } else { self.player.volume };
-                if let Some(v) = widgets::slider(ui, next(84.0), Id::unique("volume"), shown, 100.0_f64.max(shown)) {
-                    self.player.set_volume(v);
-                    self.settings.volume = v;
-                    self.settings.muted = false;
-                }
+        }
+        if show(Slot::Volume) {
+            let shown = if self.player.muted { 0.0 } else { self.player.volume };
+            if let Some(v) = widgets::slider(ui, next(84.0), Id::unique("volume"), shown, 100.0_f64.max(shown)) {
+                self.player.set_volume(v);
+                self.settings.volume = v;
+                self.settings.muted = false;
             }
         }
 
@@ -730,11 +826,10 @@ impl OpenPreviewApp {
         } else {
             format_time(pos)
         };
-        let font = FontId::proportional(13.5);
         let start = pos2(x + 8.0, row_y);
         let r1 = p.text(start, Align2::LEFT_CENTER, &cur, font.clone(), theme::TEXT);
         let mut time_rect = r1;
-        if self.player.duration > 0.0 && !tiny {
+        if show(Slot::Duration) {
             let r2 = p.text(pos2(r1.right(), row_y), Align2::LEFT_CENTER, format!("  /  {}", format_time(self.player.duration)), font, theme::TEXT_DIM);
             time_rect = time_rect.union(r2);
         }
@@ -742,14 +837,13 @@ impl OpenPreviewApp {
         if time_resp.clicked() {
             self.settings.show_remaining = !self.settings.show_remaining;
         }
-        let time_end = time_rect.right();
 
         // Right cluster, laid out right-to-left.
         let mut rx = screen.right() - 10.0;
         let mut prev = |w: f32| {
             rx -= w;
             let r = Rect::from_min_size(pos2(rx, row_y - btn / 2.0), vec2(w, btn));
-            rx -= 2.0;
+            rx -= gap;
             r
         };
         let maximized = Self::is_maximized(ctx);
@@ -757,9 +851,13 @@ impl OpenPreviewApp {
         if widgets::icon_button(ui, prev(btn), max_icon, Id::unique("maximize"), max_tip).clicked() {
             Self::toggle_maximized(ctx);
         }
-        // `shape` is what the button draws, so the open-menu ring follows it: a
-        // circle around an icon, a pill around the speed label.
-        let menu_btn = |ui: &mut Ui, r: Rect, shape: Rect, menu: Menu, resp: egui::Response, current: &mut Option<(Menu, Rect)>| {
+        // The open-menu ring follows what the button draws: a circle around
+        // an icon, a pill around the speed label.
+        let ring = |ui: &Ui, shape: Rect| {
+            let ring = shape.shrink(1.0);
+            ui.painter().rect_stroke(ring, ring.height() / 2.0, Stroke::new(1.0, theme::COLOR4), StrokeKind::Inside);
+        };
+        let menu_btn = |ui: &Ui, r: Rect, shape: Rect, menu: Menu, resp: egui::Response, current: &mut Option<(Menu, Rect)>| {
             if resp.clicked() {
                 *current = match current {
                     Some((m, _)) if *m == menu => None,
@@ -767,39 +865,49 @@ impl OpenPreviewApp {
                 };
             }
             if let Some((m, anchor)) = current
-                && *m == menu {
-                    *anchor = r;
-                    let ring = shape.shrink(1.0);
-                    ui.painter().rect_stroke(ring, ring.height() / 2.0, Stroke::new(1.0, theme::COLOR4), StrokeKind::Inside);
-                }
+                && *m == menu
+            {
+                *anchor = r;
+                ring(ui, shape);
+            }
         };
-        if !compact {
+        if !self.more.is_empty() {
             let r = prev(btn);
-            if r.left() > time_end + 8.0 && widgets::icon_button(ui, r, Icon::Keyboard, Id::unique("help"), "Shortcuts (F1)").clicked() {
-                self.show_help = !self.show_help;
+            let resp = widgets::icon_button(ui, r, Icon::More, Id::unique("more"), "More");
+            // Owns its own menu and those of the buttons it stands in for, so
+            // one opened from it stays anchored here.
+            let owned = |m: Menu| m == Menu::More || Slot::of(m).is_some_and(|slot| self.more.contains(&slot));
+            if resp.clicked() {
+                self.menu = match self.menu {
+                    Some((m, _)) if owned(m) => None,
+                    _ => Some((Menu::More, r)),
+                };
+            }
+            if let Some((m, anchor)) = &mut self.menu
+                && owned(*m)
+            {
+                *anchor = r;
+                ring(ui, r);
             }
         }
-        if !tiny {
-            let r = prev(btn);
-            if r.left() > time_end + 8.0 {
-                let resp = widgets::icon_button(ui, r, Icon::Subtitles, Id::unique("subs"), "Subtitles (S)");
-                menu_btn(ui, r, r, Menu::Subtitles, resp, &mut self.menu);
-            }
+        if show(Slot::Help) && widgets::icon_button(ui, prev(btn), Icon::Keyboard, Id::unique("help"), "Shortcuts (F1)").clicked() {
+            self.show_help = !self.show_help;
         }
-        if !compact && self.player.tracks_of(TrackKind::Audio).count() > 0 {
+        if show(Slot::Subs) {
             let r = prev(btn);
-            if r.left() > time_end + 8.0 {
-                let resp = widgets::icon_button(ui, r, Icon::Audio, Id::unique("audio"), "Audio track (A)");
-                menu_btn(ui, r, r, Menu::Audio, resp, &mut self.menu);
-            }
+            let resp = widgets::icon_button(ui, r, Icon::Subtitles, Id::unique("subs"), "Subtitles (S)");
+            menu_btn(ui, r, r, Menu::Subtitles, resp, &mut self.menu);
         }
-        if !compact {
+        if show(Slot::Audio) {
+            let r = prev(btn);
+            let resp = widgets::icon_button(ui, r, Icon::Audio, Id::unique("audio"), "Audio track (A)");
+            menu_btn(ui, r, r, Menu::Audio, resp, &mut self.menu);
+        }
+        if show(Slot::Speed) {
             let r = prev(52.0);
-            if r.left() > time_end + 8.0 {
-                let pill = r.shrink2(vec2(2.0, 4.0));
-                let resp = widgets::text_button(ui, pill, &speed_label(self.player.speed), Id::unique("speed"));
-                menu_btn(ui, r, pill, Menu::Speed, resp, &mut self.menu);
-            }
+            let pill = r.shrink2(vec2(2.0, 4.0));
+            let resp = widgets::text_button(ui, pill, &speed_label(self.player.speed), Id::unique("speed"));
+            menu_btn(ui, r, pill, Menu::Speed, resp, &mut self.menu);
         }
     }
 
@@ -809,6 +917,8 @@ impl OpenPreviewApp {
         let max_h = (anchor.top() - screen.top() - 20.0).max(80.0);
         let mut close = false;
         let mut want_sub_file = false;
+        let mut open: Option<Menu> = None;
+        let mut toggle_help = false;
 
         // One area per menu: a bottom-anchored area is placed using the size it
         // had last frame, so sharing one between menus of different heights
@@ -827,7 +937,8 @@ impl OpenPreviewApp {
                     .shadow(Shadow { offset: [0, 12], blur: 32, spread: 0, color: Color32::from_black_alpha(140) })
                     .inner_margin(Margin::same(4))
                     .show(ui, |ui| {
-                        ui.set_width(250.0);
+                        // Narrower in a narrow window, which can be smaller than the menu.
+                        ui.set_width(250.0_f32.min(screen.width() - 24.0));
                         ui.spacing_mut().item_spacing.y = 1.0;
                         ScrollArea::vertical().max_height(max_h).show(ui, |ui| {
                             let player = &mut self.player;
@@ -845,11 +956,10 @@ impl OpenPreviewApp {
                                         }
                                     }
                                     widgets::menu_separator(ui);
-                                    let scale = format!("{:.0}%", player.sub_scale * 100.0);
+                                    let scale = format!("{:.0}%", self.settings.sub_scale * 100.0);
                                     let d = widgets::menu_stepper(ui, "Size", &scale);
                                     if d != 0 {
-                                        let s = ((player.sub_scale + d as f64 * 0.1) * 10.0).round() / 10.0;
-                                        player.set_sub_scale(s);
+                                        let s = ((self.settings.sub_scale + d as f64 * 0.1) * 10.0).round() / 10.0;
                                         self.settings.sub_scale = s.clamp(0.3, 3.0);
                                     }
                                     let delay = format!("{:+.1}s", player.sub_delay);
@@ -869,6 +979,32 @@ impl OpenPreviewApp {
                                         if widgets::menu_row(ui, &t.label, &t.detail, t.selected).clicked() {
                                             player.select_track(TrackKind::Audio, Some(t.id));
                                             close = true;
+                                        }
+                                    }
+                                }
+                                Menu::More => {
+                                    // A row per control left out of the row,
+                                    // showing its current setting; menus open
+                                    // in place of this one.
+                                    for &slot in &self.more {
+                                        let current = |kind| {
+                                            player.tracks_of(kind).find(|t| t.selected).map_or("Off".to_string(), |t| ellipsize(&t.label, 22))
+                                        };
+                                        let (label, detail, target) = match slot {
+                                            Slot::Subs => ("Subtitles", current(TrackKind::Sub), Some(Menu::Subtitles)),
+                                            Slot::Audio => ("Audio track", current(TrackKind::Audio), Some(Menu::Audio)),
+                                            Slot::Speed => ("Playback speed", speed_label(player.speed), Some(Menu::Speed)),
+                                            Slot::Help => ("Keyboard shortcuts", "F1".to_string(), None),
+                                            _ => continue,
+                                        };
+                                        if widgets::menu_row(ui, label, &detail, false).clicked() {
+                                            match target {
+                                                Some(menu) => open = Some(menu),
+                                                None => {
+                                                    toggle_help = true;
+                                                    close = true;
+                                                }
+                                            }
                                         }
                                     }
                                 }
@@ -901,6 +1037,12 @@ impl OpenPreviewApp {
         });
         if close || clicked_outside {
             self.menu = None;
+        }
+        if let Some(menu) = open {
+            self.menu = Some((menu, anchor));
+        }
+        if toggle_help {
+            self.show_help = !self.show_help;
         }
         if want_sub_file {
             self.menu = None;
@@ -1009,8 +1151,6 @@ impl eframe::App for OpenPreviewApp {
             self.player.open_paths(&files);
         }
         self.player.process_events();
-        // Every frame, so an audio-only file or an empty player unlocks it.
-        platform::set_aspect_lock(self.player.aspect());
         if std::mem::take(&mut self.player.video_resized) {
             self.fit_pending = true;
         }
@@ -1124,6 +1264,18 @@ impl eframe::App for OpenPreviewApp {
             self.sub_pos = sub_pos;
             self.player.mpv.set_double("sub-pos", sub_pos);
         }
+        // mpv sizes text subtitles to the window, `sub-font-size` at 720 px
+        // tall, which in a small window shrinks them past reading. They
+        // follow the window down to `MIN_SUB_SIZE` and hold there.
+        let ppp = ctx.pixels_per_point() as f64;
+        // (A minimised window can be 0 tall.)
+        let natural = SUB_FONT_SIZE * screen.height().max(1.0) as f64 * ppp / 720.0;
+        let raise = (MIN_SUB_SIZE * ppp / natural).max(1.0);
+        let sub_scale = (self.settings.sub_scale * raise * 100.0).round() / 100.0;
+        if sub_scale != self.sub_scale {
+            self.sub_scale = sub_scale;
+            self.player.mpv.set_double("sub-scale", sub_scale);
+        }
         if show && has_media && hover.is_some() && !self.player.paused && !over_controls {
             ctx.request_repaint_after(std::time::Duration::from_secs_f64((HIDE_AFTER - idle).max(0.05)));
         }
@@ -1224,6 +1376,14 @@ impl eframe::App for FatalApp {
         if widgets::window_control(root, close, WindowGlyph::Close, Id::unique("close"), "").clicked() {
             ctx.send_viewport_cmd(ViewportCommand::Close);
         }
+    }
+}
+
+/// `text` cut to `max` characters, with an ellipsis if anything went.
+fn ellipsize(text: &str, max: usize) -> String {
+    match text.char_indices().nth(max) {
+        Some((i, _)) => format!("{}…", text[..i].trim_end()),
+        None => text.to_string(),
     }
 }
 

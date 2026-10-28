@@ -45,7 +45,6 @@ const P_PL_COUNT: u64 = 13;
 const P_PL_POS: u64 = 14;
 const P_BUFFERING: u64 = 16;
 const P_CHAPTERS: u64 = 17;
-const P_SUB_SCALE: u64 = 18;
 const P_SUB_DELAY: u64 = 19;
 const P_ROTATE: u64 = 20;
 const P_GAMMA: u64 = 21;
@@ -74,7 +73,6 @@ pub struct Player {
     pub playlist_pos: i64,
     pub tracks: Vec<Track>,
     pub chapters: Vec<Chapter>,
-    pub sub_scale: f64,
     pub sub_delay: f64,
     /// Set when the video's display size changes, consumed by the window logic.
     pub video_resized: bool,
@@ -101,7 +99,6 @@ impl Player {
             (P_PL_POS, "playlist-pos", I),
             (P_BUFFERING, "paused-for-cache", F),
             (P_CHAPTERS, "chapter-list", N),
-            (P_SUB_SCALE, "sub-scale", D),
             (P_SUB_DELAY, "sub-delay", D),
             (P_ROTATE, "video-out-params/rotate", I),
             (P_GAMMA, "video-params/gamma", S),
@@ -129,7 +126,6 @@ impl Player {
             playlist_pos: -1,
             tracks: Vec::new(),
             chapters: Vec::new(),
-            sub_scale: 1.0,
             sub_delay: 0.0,
             video_resized: false,
             last_error: None,
@@ -235,7 +231,6 @@ impl Player {
             P_BUFFERING => self.buffering = b(&v),
             P_GAMMA => self.hdr = matches!(&v, PropValue::Str(g) if g == "pq" || g == "hlg"),
             P_CHAPTERS => self.reload_chapters(),
-            P_SUB_SCALE => self.sub_scale = f(&v).unwrap_or(1.0),
             P_SUB_DELAY => self.sub_delay = f(&v).unwrap_or(0.0),
             _ => {}
         }
@@ -374,10 +369,6 @@ impl Player {
 
     pub fn cycle_frame(&self, forward: bool) {
         self.mpv.cmd(&[if forward { "frame-step" } else { "frame-back-step" }]);
-    }
-
-    pub fn set_sub_scale(&self, v: f64) {
-        self.mpv.set_double("sub-scale", v.clamp(0.3, 3.0));
     }
 
     pub fn set_sub_delay(&self, v: f64) {

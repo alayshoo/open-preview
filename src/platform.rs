@@ -1,6 +1,5 @@
-//! OS integration. Windows gets rounded corners, a dark frame, aspect-ratio
-//! locked resizing and a fix for dragging between monitors of different
-//! scale; other platforms use no-ops.
+//! OS integration. Windows gets rounded corners, a dark frame and a fix for
+//! dragging between monitors of different scale; other platforms use no-ops.
 
 #[cfg(not(windows))]
 use raw_window_handle::HasWindowHandle;
@@ -10,10 +9,6 @@ pub use win::*;
 
 #[cfg(not(windows))]
 pub fn init(_window: &impl HasWindowHandle) {}
-
-/// Locks interactive resizing to `aspect` (width / height). `None` unlocks.
-#[cfg(not(windows))]
-pub fn set_aspect_lock(_aspect: Option<f32>) {}
 
 /// The usable area (minus the taskbar) of the monitor the window is on, in
 /// physical pixels. `None` where it isn't known.
@@ -37,7 +32,7 @@ pub fn open_default_apps_settings() {}
 mod win {
     use std::cell::Cell;
     use std::ffi::c_void;
-    use std::sync::atomic::{AtomicBool, AtomicPtr, AtomicU32, Ordering};
+    use std::sync::atomic::{AtomicBool, AtomicPtr, Ordering};
 
     use raw_window_handle::{HasWindowHandle, RawWindowHandle};
     use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, RECT, WPARAM};
@@ -49,12 +44,11 @@ mod win {
         ASSOCF_INIT_IGNOREUNKNOWN, ASSOCSTR_EXECUTABLE, AssocQueryStringW, DefSubclassProc, SetWindowSubclass, ShellExecuteW,
     };
     use windows::Win32::UI::WindowsAndMessaging::{
-        SW_SHOWNORMAL, SWP_NOMOVE, WINDOWPOS, WM_DPICHANGED, WM_ENTERSIZEMOVE, WM_EXITSIZEMOVE, WM_SIZING,
+        SW_SHOWNORMAL, SWP_NOMOVE, WINDOWPOS, WM_DPICHANGED, WM_ENTERSIZEMOVE, WM_EXITSIZEMOVE,
         WM_WINDOWPOSCHANGING,
     };
     use windows::core::{PWSTR, w};
 
-    static ASPECT_BITS: AtomicU32 = AtomicU32::new(0);
     static HWND_PTR: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());
     /// Between `WM_ENTERSIZEMOVE` and `WM_EXITSIZEMOVE`: the user is dragging
     /// or resizing the window.
@@ -122,10 +116,6 @@ mod win {
         }
     }
 
-    pub fn set_aspect_lock(aspect: Option<f32>) {
-        ASPECT_BITS.store(aspect.filter(|a| a.is_finite() && *a > 0.0).map_or(0, f32::to_bits), Ordering::Relaxed);
-    }
-
     pub fn work_area() -> Option<egui::Rect> {
         let hwnd = HWND(HWND_PTR.load(Ordering::Relaxed));
         if hwnd.is_invalid() {
@@ -149,14 +139,6 @@ mod win {
         _data: usize,
     ) -> LRESULT {
         match msg {
-            WM_SIZING => {
-                let aspect = f32::from_bits(ASPECT_BITS.load(Ordering::Relaxed));
-                if aspect > 0.0 {
-                    let r = unsafe { &mut *(lparam.0 as *mut RECT) };
-                    constrain(r, wparam.0 as u32, aspect);
-                    return LRESULT(1);
-                }
-            }
             WM_ENTERSIZEMOVE => IN_SIZE_MOVE.store(true, Ordering::Relaxed),
             WM_EXITSIZEMOVE => IN_SIZE_MOVE.store(false, Ordering::Relaxed),
             // Dragged onto a monitor with a different scale. winit 0.30 checks
@@ -188,23 +170,5 @@ mod win {
             _ => {}
         }
         unsafe { DefSubclassProc(hwnd, msg, wparam, lparam) }
-    }
-
-    /// Adjusts the rect being dragged so it keeps the video's aspect ratio.
-    fn constrain(r: &mut RECT, edge: u32, aspect: f32) {
-        const LEFT: u32 = 1;
-        const RIGHT: u32 = 2;
-        const TOP: u32 = 3;
-        const TOPLEFT: u32 = 4;
-        const TOPRIGHT: u32 = 5;
-        const BOTTOM: u32 = 6;
-        let w = (r.right - r.left) as f32;
-        let h = (r.bottom - r.top) as f32;
-        match edge {
-            LEFT | RIGHT => r.bottom = r.top + (w / aspect).round() as i32,
-            TOP | BOTTOM => r.right = r.left + (h * aspect).round() as i32,
-            TOPLEFT | TOPRIGHT => r.top = r.bottom - (w / aspect).round() as i32,
-            _ => r.bottom = r.top + (w / aspect).round() as i32,
-        }
     }
 }
