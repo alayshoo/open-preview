@@ -45,7 +45,6 @@ const P_DWIDTH: u64 = 11;
 const P_DHEIGHT: u64 = 12;
 const P_PL_COUNT: u64 = 13;
 const P_PL_POS: u64 = 14;
-const P_CACHE_TIME: u64 = 15;
 const P_BUFFERING: u64 = 16;
 const P_CHAPTERS: u64 = 17;
 const P_SUB_SCALE: u64 = 18;
@@ -64,7 +63,6 @@ pub struct Player {
     pub idle: bool,
     pub loading: bool,
     pub buffering: bool,
-    pub cache_time: f64,
     pub video_size: Option<(i64, i64)>,
     pub playlist_count: i64,
     pub playlist_pos: i64,
@@ -95,7 +93,6 @@ impl Player {
             (P_DHEIGHT, "dheight", I),
             (P_PL_COUNT, "playlist-count", I),
             (P_PL_POS, "playlist-pos", I),
-            (P_CACHE_TIME, "demuxer-cache-time", D),
             (P_BUFFERING, "paused-for-cache", F),
             (P_CHAPTERS, "chapter-list", N),
             (P_SUB_SCALE, "sub-scale", D),
@@ -116,7 +113,6 @@ impl Player {
             idle: true,
             loading: false,
             buffering: false,
-            cache_time: 0.0,
             video_size: None,
             playlist_count: 0,
             playlist_pos: -1,
@@ -208,7 +204,6 @@ impl Player {
             }
             P_PL_COUNT => self.playlist_count = i(&v).unwrap_or(0),
             P_PL_POS => self.playlist_pos = i(&v).unwrap_or(-1),
-            P_CACHE_TIME => self.cache_time = f(&v).unwrap_or(0.0),
             P_BUFFERING => self.buffering = b(&v),
             P_CHAPTERS => self.reload_chapters(),
             P_SUB_SCALE => self.sub_scale = f(&v).unwrap_or(1.0),

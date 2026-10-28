@@ -11,12 +11,13 @@ That lets the controls sit on the picture instead of in a separate toolbar.
 
 ## Design
 
-- **Vault's look.** The title bar, timeline and volume slider are copied from
-  Vault (and so from Open Darkroom): its neutral grey palette, its Figtree
-  typeface, a 40 px title bar with the title centred over a black-to-clear
-  gradient, and its slider, which is cut into chapters on the timeline, keeps a
-  gap around the head and grows the head as you take hold of it. No accent
-  colour anywhere.
+- **Vault's look.** The timeline and volume slider are copied from Vault (and
+  so from Open Darkroom): its neutral grey palette, its Figtree typeface, and
+  its slider, which is cut into chapters on the timeline, keeps a gap around
+  the head and grows the head as you take hold of it. The title bar puts the
+  title on the left and Open Darkroom's window buttons on the right, 8 px from
+  the top and side edges, over a black-to-clear gradient. No accent colour
+  anywhere.
 - **Borderless window that is its own picture-in-picture.** The title bar and
   controls fade out after about 2 s without mouse movement, or as soon as the
   cursor leaves the window, leaving just the video.
@@ -130,12 +131,11 @@ Install `libmpv-dev`, or just `libmpv2`, then run `cargo run -- video.mp4`.
 | S / A | Cycle subtitles / audio track |
 | Z / X | Subtitle delay −/+ 0.1 s |
 | [ / ] / Backspace | Speed down / up / reset |
-| F, double-click | Fullscreen |
+| F, double-click | Maximize / restore |
 | P | Keep on top (pin) |
 | PgUp / PgDn | Previous / next in playlist |
 | Ctrl+O / Ctrl+V | Open file / paste path or URL |
 | F1 | Shortcut overlay |
-| Esc | Leave fullscreen |
 
 ## Code layout
 

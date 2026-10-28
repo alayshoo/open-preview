@@ -53,77 +53,86 @@ pub fn icon_button(ui: &mut Ui, rect: Rect, icon: Icon, id: Id, tooltip: &str) -
     }
 }
 
-/// Glyphs for the title bar's window controls, drawn on a 12×12 grid at a
-/// 1.2px stroke, the way Vault's title bar draws them.
+/// Glyphs for the title bar's window controls, drawn the way Open Darkroom's
+/// title bar draws them: on a 24-unit grid, each at its own size.
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum WindowGlyph {
     Pin { on: bool },
     Minimize,
     Maximize,
     Restore,
-    ExitFullscreen,
     Close,
 }
 
-/// A 44px, full-height window control: transparent at rest, `BG4` and
-/// brighter on hover. Close gets a stronger neutral rather than a colour.
+/// Open Darkroom's window control: a 36×28 button with 7px corners,
+/// transparent at rest, `BG5` on hover, and a glyph that brightens from
+/// `COLOR2` to `COLOR1`. A soft shadow keeps the glyph legible over video.
 pub fn window_control(ui: &mut Ui, rect: Rect, glyph: WindowGlyph, id: Id, tooltip: &str) -> Response {
     let resp = ui.interact(rect, id, Sense::click());
-    let hover = ui.ctx().animate_bool_with_time(id.with("h"), resp.hovered(), 0.15);
+    let hover = ui.ctx().animate_bool_with_time(id.with("h"), resp.hovered(), 0.2);
     let p = ui.painter();
     if hover > 0.0 {
-        let bg = if glyph == WindowGlyph::Close { theme::COLOR5 } else { theme::BG4 };
-        p.rect_filled(rect, 0.0, bg.gamma_multiply(hover));
+        p.rect_filled(rect, 7.0, theme::BG5.gamma_multiply(hover));
     }
     let on = matches!(glyph, WindowGlyph::Pin { on: true });
     let color = if on { theme::COLOR1 } else { lerp_color(theme::COLOR2, theme::COLOR1, hover) };
-    paint_window_glyph(p, glyph, Rect::from_center_size(rect.center(), vec2(12.0, 12.0)), color);
+    paint_window_glyph(p, glyph, rect.center() + vec2(0.0, 1.0), Color32::from_black_alpha(110));
+    paint_window_glyph(p, glyph, rect.center(), color);
     if tooltip.is_empty() { resp } else { resp.on_hover_text_at_pointer(tooltip) }
 }
 
-fn paint_window_glyph(p: &Painter, glyph: WindowGlyph, r: Rect, color: Color32) {
-    let at = |x: f32, y: f32| pos2(r.left() + x, r.top() + y);
-    let stroke = Stroke::new(1.2, color);
-    let line = |pts: Vec<Pos2>| p.add(Shape::Path(PathShape::line(pts, stroke)));
+fn paint_window_glyph(p: &Painter, glyph: WindowGlyph, center: Pos2, color: Color32) {
+    // The SVGs' sizes in Open Darkroom: each glyph's 24-unit box is drawn at
+    // this many pixels.
+    let size = match glyph {
+        WindowGlyph::Maximize => 17.0,
+        WindowGlyph::Pin { .. } => 15.0,
+        _ => 20.0,
+    };
+    let s = size / 24.0;
+    let at = |x: f32, y: f32| center + vec2(x - 12.0, y - 12.0) * s;
+    // Round-capped, like the SVG paths.
+    let line = |pts: Vec<Pos2>, width: f32| {
+        let w = width * s;
+        p.circle_filled(pts[0], w / 2.0, color);
+        p.circle_filled(pts[pts.len() - 1], w / 2.0, color);
+        p.add(Shape::Path(PathShape::line(pts, Stroke::new(w, color))));
+    };
     match glyph {
         WindowGlyph::Minimize => {
-            line(vec![at(1.5, 6.0), at(10.5, 6.0)]);
+            // 12×2 artwork fitted into an 18×1.6 box: 9.6px wide.
+            let r = Rect::from_center_size(center, vec2(9.6, 1.6));
+            p.rect_filled(r, 0.8, color);
         }
         WindowGlyph::Maximize => {
-            p.rect_stroke(Rect::from_min_max(at(1.4, 1.4), at(10.6, 10.6)), 1.6, stroke, StrokeKind::Middle);
+            let r = Rect::from_min_max(at(4.5, 6.0), at(19.5, 19.0));
+            p.rect_stroke(r, 1.5 * s, Stroke::new(2.0 * s, color), StrokeKind::Middle);
         }
         WindowGlyph::Restore => {
-            p.rect_stroke(Rect::from_min_max(at(1.2, 3.6), at(8.4, 10.8)), 1.4, stroke, StrokeKind::Middle);
+            p.rect_stroke(Rect::from_min_max(at(5.0, 8.9), at(16.5, 18.6)), 0.9 * s, Stroke::new(1.8 * s, color), StrokeKind::Middle);
             // The window behind: up, across and down, with rounded corners.
-            let mut pts = vec![at(3.9, 3.6)];
-            pts.extend(corner(at(5.3, 2.6), 1.4, 180.0));
-            pts.extend(corner(at(9.4, 2.6), 1.4, 270.0));
-            pts.extend(corner(at(9.4, 6.7), 1.4, 0.0));
-            pts.push(at(8.4, 8.1));
-            line(pts);
-        }
-        WindowGlyph::ExitFullscreen => {
-            line(vec![at(4.5, 1.5), at(4.5, 4.5), at(1.5, 4.5)]);
-            line(vec![at(7.5, 1.5), at(7.5, 4.5), at(10.5, 4.5)]);
-            line(vec![at(1.5, 7.5), at(4.5, 7.5), at(4.5, 10.5)]);
-            line(vec![at(10.5, 7.5), at(7.5, 7.5), at(7.5, 10.5)]);
+            let mut pts = vec![at(8.5, 8.0)];
+            pts.extend(corner(at(9.5, 6.3), 1.0 * s, 180.0));
+            pts.extend(corner(at(19.25, 6.3), 1.0 * s, 270.0));
+            pts.extend(corner(at(19.25, 14.27), 1.0 * s, 0.0));
+            pts.push(at(17.4, 15.27));
+            line(pts, 1.6);
         }
         WindowGlyph::Close => {
-            line(vec![at(2.2, 2.2), at(9.8, 9.8)]);
-            line(vec![at(9.8, 2.2), at(2.2, 9.8)]);
+            line(vec![at(6.4, 6.4), at(17.6, 17.6)], 2.0);
+            line(vec![at(17.6, 6.4), at(6.4, 17.6)], 2.0);
         }
         WindowGlyph::Pin { on } => {
             // A thumbtack: cap, neck flaring into the head, and the needle.
+            let stroke = Stroke::new(2.0 * s, color);
+            let head = vec![at(9.8, 2.8), at(9.8, 9.6), at(6.0, 14.0), at(18.0, 14.0), at(14.2, 9.6), at(14.2, 2.8)];
             if on {
-                p.rect_filled(Rect::from_min_max(at(4.9, 1.4), at(7.1, 4.9)), 0.0, color);
-                p.add(Shape::convex_polygon(vec![at(4.9, 4.8), at(3.0, 7.0), at(9.0, 7.0), at(7.1, 4.8)], color, Stroke::NONE));
+                p.rect_filled(Rect::from_min_max(at(9.8, 2.8), at(14.2, 9.8)), 0.0, color);
+                p.add(Shape::convex_polygon(vec![at(9.8, 9.6), at(6.0, 14.0), at(18.0, 14.0), at(14.2, 9.6)], color, Stroke::NONE));
             }
-            line(vec![at(3.9, 1.4), at(8.1, 1.4)]);
-            p.add(Shape::Path(PathShape::closed_line(
-                vec![at(4.9, 1.4), at(4.9, 4.8), at(3.0, 7.0), at(9.0, 7.0), at(7.1, 4.8), at(7.1, 1.4)],
-                stroke,
-            )));
-            line(vec![at(6.0, 7.0), at(6.0, 10.6)]);
+            line(vec![at(7.8, 2.8), at(16.2, 2.8)], 2.0);
+            p.add(Shape::Path(PathShape::closed_line(head, stroke)));
+            line(vec![at(12.0, 14.0), at(12.0, 21.2)], 2.0);
         }
     }
 }
@@ -137,20 +146,6 @@ fn corner(center: Pos2, radius: f32, from_deg: f32) -> Vec<Pos2> {
             center + vec2(a.cos(), a.sin()) * radius
         })
         .collect()
-}
-
-/// A borderless square button: `COLOR2` at rest, `BG3` and `COLOR1` on hover.
-/// Vault's player-row and title-bar lead buttons.
-pub fn flat_button(ui: &mut Ui, rect: Rect, icon: Icon, id: Id, tooltip: &str) -> Response {
-    let resp = ui.interact(rect, id, Sense::click());
-    let hover = ui.ctx().animate_bool_with_time(id.with("h"), resp.hovered(), 0.15);
-    let p = ui.painter();
-    if hover > 0.0 {
-        p.rect_filled(rect, 7.0, theme::BG3.gamma_multiply(hover));
-    }
-    let color = lerp_color(theme::COLOR2, theme::COLOR1, hover);
-    icons::paint(p, icon, Rect::from_center_size(rect.center(), vec2(16.0, 16.0)), color);
-    if tooltip.is_empty() { resp } else { resp.on_hover_text_at_pointer(tooltip) }
 }
 
 fn lerp_color(a: Color32, b: Color32, t: f32) -> Color32 {
@@ -190,8 +185,6 @@ const CHAPTER_GAP: f32 = 3.0;
 pub struct SeekBar<'a> {
     pub position: f64,
     pub duration: f64,
-    /// End of what's been buffered ahead of the position, in seconds.
-    pub buffered: f64,
     pub chapters: &'a [Chapter],
 }
 
@@ -240,7 +233,6 @@ impl SeekBar<'_> {
         bounds.extend(cuts);
         bounds.push(dur);
 
-        let loaded_x = x_at(self.buffered);
         for pair in bounds.windows(2) {
             let (from, to) = (pair[0], pair[1]);
             let a = x_at(from) + if from > 0.0 { CHAPTER_GAP / 2.0 } else { 0.0 };
@@ -253,11 +245,6 @@ impl SeekBar<'_> {
             let ahead = a.max(split_x + HEAD_GAP);
             if b > ahead {
                 track_piece(p, Rect::from_x_y_ranges(ahead..=b, rails.y_range()), theme::COLOR3);
-                // What's buffered: a hint, so barely there.
-                let loaded_end = b.min(loaded_x);
-                if self.buffered > position && loaded_end > ahead {
-                    track_piece(p, Rect::from_x_y_ranges(ahead..=loaded_end, rails.y_range()), theme::COLOR2.gamma_multiply(0.45));
-                }
             }
         }
 
