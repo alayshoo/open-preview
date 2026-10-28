@@ -165,15 +165,20 @@ impl OpenPreviewApp {
         let info = ctx.input(|i| i.viewport().clone());
         let Some(inner) = info.inner_rect else { return };
         let monitor = info.monitor_size.unwrap_or(vec2(1920.0, 1080.0));
-        let mut w = inner.width();
-        let mut h = w / aspect;
-        let max_h = monitor.y * 0.88;
-        if h > max_h {
-            h = max_h;
-            w = h * aspect;
+        // Keep the window's area, so 16:9 and 9:16 swap shapes instead of a
+        // portrait video squeezing into the old width.
+        let area = inner.width() * inner.height();
+        let mut size = vec2((area * aspect).sqrt(), (area / aspect).sqrt());
+        let max = monitor * 0.88;
+        size *= (max.x / size.x).min(max.y / size.y).min(1.0);
+        if (size - inner.size()).abs().max_elem() <= 1.0 {
+            return;
         }
-        if (h - inner.height()).abs() > 1.0 || (w - inner.width()).abs() > 1.0 {
-            ctx.send_viewport_cmd(ViewportCommand::InnerSize(vec2(w, h)));
+        ctx.send_viewport_cmd(ViewportCommand::InnerSize(size));
+        // Grow or shrink about the window's centre, so it stays on screen.
+        if let Some(outer) = info.outer_rect {
+            let frame = outer.size() - inner.size();
+            ctx.send_viewport_cmd(ViewportCommand::OuterPosition(outer.center() - (size + frame) / 2.0));
         }
     }
 
