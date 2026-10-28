@@ -11,17 +11,7 @@ rm -rf "$stage" && mkdir -p "$stage" dist
 
 cargo build --release --target x86_64-pc-windows-gnu -p open-preview -p open-preview-thumbs
 
-dll=${1:-}
-if [[ -z "$dll" ]]; then
-    # Latest baseline x86_64 build from the official SourceForge mirror.
-    rss=$(curl -fsSL --retry 3 "https://sourceforge.net/projects/mpv-player-windows/rss?path=/libmpv")
-    name=$(grep -oE 'mpv-dev-x86_64-[0-9]{8}-git-[0-9a-f]+\.7z' <<<"$rss" | sed -n 1p)
-    dl=target/libmpv/$name
-    mkdir -p target/libmpv
-    [[ -f "$dl" ]] || curl -fsSL --retry 3 -o "$dl" "https://sourceforge.net/projects/mpv-player-windows/files/libmpv/$name/download"
-    7z e -y -otarget/libmpv "$dl" libmpv-2.dll >/dev/null
-    dll=target/libmpv/libmpv-2.dll
-fi
+dll=${1:-$(scripts/fetch-libmpv.sh)}
 
 cp target/x86_64-pc-windows-gnu/release/open-preview.exe target/x86_64-pc-windows-gnu/release/open_preview_thumbs.dll assets/open-preview.ico installer/THIRD-PARTY-NOTICES.txt "$dll" "$stage/"
 wixl -a x64 -D Version="$version" -D BinDir="$stage" -o "dist/Open-Preview-$version-x64.msi" installer/open-preview.wxs

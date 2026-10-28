@@ -8,6 +8,8 @@ mod mpv;
 mod platform;
 mod player;
 mod thumbnail;
+#[cfg(test)]
+mod tests;
 mod ui;
 
 use std::sync::Arc;

@@ -34,7 +34,17 @@ That lets the controls sit on the picture instead of in a separate toolbar.
 
 ## Features
 
-- Opens anything FFmpeg can play. Hardware decoding is on (`hwdec=auto-safe`).
+- Opens anything FFmpeg can play, which covers what VLC plays: H.264, HEVC
+  (8 to 12-bit, 4:2:2, 4:4:4), AV1, VP8/VP9, MPEG-1/2/4, DivX/Xvid, WMV, Theora,
+  RealVideo, ProRes, DNxHR, CineForm, DV, FFV1 and other lossless and legacy
+  codecs; AAC, MP3, Opus, Vorbis, FLAC, ALAC, AC-3, E-AC-3, DTS, TrueHD, PCM,
+  WMA and more; in MKV, MP4/MOV, AVI, TS/M2TS, MPEG-PS/VOB, WebM, Ogg, FLV,
+  ASF, MXF, 3GP, RealMedia and HLS. DVD and Blu-ray folders and ISO images,
+  tracker music (MOD, XM, S3M, IT) and M3U/PLS/CUE playlists open too.
+  Hardware decoding is on (`hwdec=auto-safe`).
+- HDR10 and HLG (HEVC, AV1, VP9) are tone-mapped to the screen, thumbnails
+  included. Interlaced video (TV, DVD) is deinterlaced automatically, and
+  rotation flags, non-square pixels and full-range video are honoured.
 - Subtitles: picks up embedded and side-by-side subtitle files automatically.
   You can also drag in or browse for `.srt/.ass/.vtt/...` files, and change the
   subtitle size and delay from the subtitles menu.
@@ -85,8 +95,9 @@ the latest libmpv from the official SourceForge mirror. The installer:
 - upgrades older versions in place, including Lumen, the earlier name.
   Uninstall it from Settings → Apps.
 
-GitHub Actions (`.github/workflows/ci.yml`) lints every push and pull request
-and builds the MSI on every push; it's attached to the run as an artifact.
+GitHub Actions (`.github/workflows/ci.yml`) lints and runs the media tests (see
+[Tests](#tests)) on every push and pull request, and builds the MSI on every
+push; it's attached to the run as an artifact.
 To publish a release, bump `version` in `Cargo.toml`, then push a matching tag
 (`git tag v0.4.0 && git push origin v0.4.0`); the MSI goes up as a GitHub
 Release.
@@ -137,6 +148,30 @@ Install `libmpv-dev`, or just `libmpv2`, then run `cargo run -- video.mp4`.
 | Ctrl+O / Ctrl+V | Open file / paste path or URL |
 | F1 | Shortcut overlay |
 
+## Tests
+
+`cargo test` runs the unit tests and the media regression tests in
+`src/tests/`: over a hundred short clips that ffmpeg makes on first run (into
+`target/media-fixtures`), one per codec, container, HDR format, subtitle type
+and odd case (rotation, anamorphic DVD, interlacing, odd frame sizes, cover art,
+a legacy-code-page `.srt`). Each clip goes through the app's own code and mpv
+options. The tests check the tracks and codecs `Player` finds, the duration,
+channel count and display size, and that a full decode logs no errors. They
+also check the colours of a known test pattern: in the thumbnail, and on Linux
+in the OpenGL path the window draws with, where HDR is tone-mapped and
+subtitles are drawn.
+
+Without libmpv or ffmpeg these tests are skipped with a note.
+`OPEN_PREVIEW_MEDIA_TESTS=require` turns that into a failure.
+`scripts/test-media.sh` runs them twice: against the system libmpv, then,
+cross-built and under Wine, against the `libmpv-2.dll` the installer ships, on
+the same clips. CI does the same on every push and pull request, and won't
+build the installer if they fail. To look at a failure,
+`OPEN_PREVIEW_TEST_DUMP=<folder>` saves the rendered frames there, and
+`OPEN_PREVIEW_LIBMPV=<path>` tries another libmpv build. It needs ffmpeg,
+`libmpv2`, Mesa's EGL (`libegl-mesa0`, `libgl1-mesa-dri`), `wine`, mingw-w64
+and 7z.
+
 ## Code layout
 
 | File | Purpose |
@@ -147,6 +182,8 @@ Install `libmpv-dev`, or just `libmpv2`, then run `cargo run -- video.mp4`.
 | `src/ui/` | Vector icons, theme, custom widgets (seek bar, sliders, menus) |
 | `src/platform.rs` | Windows: rounded corners, aspect-locked resizing, default-player check |
 | `src/thumbnail.rs` | `--thumbnail` mode: one frame to stdout via libmpv's software renderer |
+| `src/formats.rs` | File types for the open dialog and drag and drop; the installer registers the same |
+| `src/tests/` | Media regression tests: the clip matrix, ffmpeg fixtures, a headless OpenGL harness |
 | `thumbnailer/` | Explorer thumbnail handler (COM DLL) that calls `--thumbnail` |
 | `installer/` | WiX source for the MSI and the third-party notices it ships |
 
@@ -157,8 +194,13 @@ Install `libmpv-dev`, or just `libmpv2`, then run `cargo run -- video.mp4`.
 - Video goes through OpenGL. On Windows that means mpv's `dxva2`/`nvdec`
   interop, or `*-copy` hardware decoding. Rendering straight through D3D11 would
   need mpv's (still experimental) D3D11 render API or a wgpu backend.
-- There are no file associations or installer yet. You can still drag files onto
-  `open-preview.exe` or use "Open with".
+- HDR is shown tone-mapped to SDR, also on an HDR screen: egui draws to an
+  8-bit surface.
+- Dolby Vision profile 5 (common in streaming rips) plays with wrong, green
+  and purple colours. Reshaping it needs mpv's `gpu-next` renderer, which
+  libmpv's render API doesn't use. VLC 3 has the same problem. Profiles 7 and 8
+  play their HDR10 base layer and look right.
+- MIDI and SID files don't play: FFmpeg has no synthesizer for them.
 
 ## License
 

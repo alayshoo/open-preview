@@ -1,10 +1,11 @@
 name: CI
 
-# Every push and pull request is linted. Every push also builds the Windows
-# installer and attaches it to the run. A push to main whose Cargo.toml version
-# has no tag yet tags it (v0.3.0) and publishes the installer as a GitHub
-# Release, so bumping the version is all a release takes. Pushing a version tag
-# by hand publishes it the same way.
+# Every push and pull request is linted and runs the media tests (src/tests/)
+# against the system libmpv and, under Wine, the bundled one. Every push also
+# builds the Windows installer and attaches it to the run. A push to main whose
+# Cargo.toml version has no tag yet tags it (v0.3.0) and publishes the installer
+# as a GitHub Release, so bumping the version is all a release takes. Pushing a
+# version tag by hand publishes it the same way.
 on:
   push:
     branches: [main]
@@ -37,9 +38,25 @@ jobs:
       - name: Clippy (Windows)
         run: cargo clippy --workspace --all-targets --target x86_64-pc-windows-gnu -- -D warnings
 
+  media:
+    name: Media tests
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - run: rustup toolchain install || rustup show
+      # ffmpeg makes the test clips; libmpv and Mesa's EGL play them natively;
+      # Wine and mingw-w64 run the Windows build against the bundled DLL.
+      - run: >-
+          sudo apt-get update && sudo apt-get install -y --no-install-recommends
+          ffmpeg libmpv2 libegl1 libegl-mesa0 libgl1-mesa-dri fonts-dejavu-core mingw-w64 wine wine64 p7zip-full
+      - uses: Swatinem/rust-cache@v2
+      - name: Codecs, containers, HDR and subtitles, on both libmpv builds
+        run: scripts/test-media.sh
+
   installer:
     name: Windows installer
-    needs: lint
+    # A libmpv build that fails the media tests isn't shipped.
+    needs: [lint, media]
     if: github.event_name == 'push'
     runs-on: ubuntu-24.04
     permissions:
