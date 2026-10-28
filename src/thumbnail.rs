@@ -64,6 +64,7 @@ fn render(path: &str, size: u32) -> Result<(u32, u32, Vec<u8>), String> {
     loop {
         while let Some(event) = mpv.poll_event() {
             match event {
+                Event::FileLoaded => rotate_in_filter(&mpv),
                 Event::PlaybackRestart => restarted = true,
                 Event::EndFile { error } => return Err(error.unwrap_or_else(|| "no video".into())),
                 Event::Shutdown => return Err("mpv shut down".into()),
@@ -104,4 +105,18 @@ fn render(path: &str, size: u32) -> Result<(u32, u32, Vec<u8>), String> {
     }
     drop(renderer);
     Ok((w, h, pixels))
+}
+
+/// The libmpv VO claims it can rotate, so mpv leaves rotation metadata (phone
+/// videos) to it, but the software renderer can't and draws sideways or
+/// aborts. Rotate in the filter chain instead.
+fn rotate_in_filter(mpv: &Mpv) {
+    let filter = match mpv.get_i64("current-tracks/video/demux-rotation").unwrap_or(0).rem_euclid(360) {
+        90 => "transpose=clock",
+        180 => "hflip,vflip",
+        270 => "transpose=cclock",
+        _ => return,
+    };
+    mpv.set_str("video-rotate", "no");
+    mpv.set_str("vf", &format!("lavfi=[{filter}]"));
 }
