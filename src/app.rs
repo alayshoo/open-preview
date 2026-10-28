@@ -84,6 +84,9 @@ pub struct OpenPreviewApp {
     /// Size of the open menu last frame; see `show_menu`.
     menu_size: Option<Vec2>,
     press_on_edge: bool,
+    /// The video's shape changed and the window hasn't been fitted to it yet;
+    /// held while maximised or mid-drag.
+    fit_pending: bool,
     wheel_accum: f32,
     window_title: String,
     /// Files from the command line, opened once the video output exists.
@@ -126,6 +129,7 @@ impl OpenPreviewApp {
             is_default_player: platform::is_default_video_player(),
             was_focused: true,
             press_on_edge: false,
+            fit_pending: false,
             wheel_accum: 0.0,
             window_title: String::new(),
             pending_files: files,
@@ -155,15 +159,13 @@ impl OpenPreviewApp {
 
     /// Resizes the window to hug the video when a new video size arrives.
     fn fit_window_to_video(&mut self, ctx: &egui::Context) {
-        let aspect = self.player.aspect();
-        platform::set_aspect_lock(aspect);
-        let Some(aspect) = aspect else { return };
-        if Self::is_maximized(ctx) {
-            return;
-        }
+        let Some(aspect) = self.player.aspect() else { return };
         let info = ctx.input(|i| i.viewport().clone());
         let Some(inner) = info.inner_rect else { return };
-        let monitor = info.monitor_size.unwrap_or(vec2(1920.0, 1080.0));
+        // The monitor's work area (no taskbar) where the platform knows it.
+        let ppp = ctx.pixels_per_point();
+        let work = platform::work_area().map(|r| Rect::from_min_max(r.min / ppp, r.max / ppp));
+        let monitor = work.map_or(info.monitor_size.unwrap_or(vec2(1920.0, 1080.0)), |w| w.size());
         // Keep the window's area, so 16:9 and 9:16 swap shapes instead of a
         // portrait video squeezing into the old width.
         let area = inner.width() * inner.height();
@@ -174,10 +176,15 @@ impl OpenPreviewApp {
             return;
         }
         ctx.send_viewport_cmd(ViewportCommand::InnerSize(size));
-        // Grow or shrink about the window's centre, so it stays on screen.
+        // Grow or shrink about the window's centre, kept inside the work area
+        // so a window near an edge doesn't grow off it.
         if let Some(outer) = info.outer_rect {
-            let frame = outer.size() - inner.size();
-            ctx.send_viewport_cmd(ViewportCommand::OuterPosition(outer.center() - (size + frame) / 2.0));
+            let outer_size = size + outer.size() - inner.size();
+            let mut pos = outer.center() - outer_size / 2.0;
+            if let Some(w) = work {
+                pos = pos.clamp(w.min, w.min.max(w.max - outer_size));
+            }
+            ctx.send_viewport_cmd(ViewportCommand::OuterPosition(pos));
         }
     }
 
@@ -907,7 +914,16 @@ impl eframe::App for OpenPreviewApp {
             self.player.open_paths(&files);
         }
         self.player.process_events();
+        // Every frame, so an audio-only file or an empty player unlocks it.
+        platform::set_aspect_lock(self.player.aspect());
         if std::mem::take(&mut self.player.video_resized) {
+            self.fit_pending = true;
+        }
+        // Held while maximised, so restoring fits the window to a video that
+        // arrived meanwhile. Not while a button is down either: during a drag
+        // or resize the OS owns the window, and a resize from us would fight it.
+        if self.fit_pending && !Self::is_maximized(&ctx) && !ctx.input(|i| i.pointer.any_down()) {
+            self.fit_pending = false;
             self.fit_window_to_video(&ctx);
         }
         let title = if self.player.has_media() && !self.player.title.is_empty() {
