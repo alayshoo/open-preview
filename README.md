@@ -84,6 +84,12 @@ the latest libmpv from the official SourceForge mirror. The installer:
 - upgrades older versions in place, including Lumen, the earlier name.
   Uninstall it from Settings → Apps.
 
+GitHub Actions (`.github/workflows/ci.yml`) lints every push and pull request
+and builds the MSI on every push; it's attached to the run as an artifact.
+To publish a release, bump `version` in `Cargo.toml`, then push a matching tag
+(`git tag v0.4.0 && git push origin v0.4.0`); the MSI goes up as a GitHub
+Release.
+
 The MSI isn't code-signed, so SmartScreen warns on first run. Choose
 **More info → Run anyway**.
 
