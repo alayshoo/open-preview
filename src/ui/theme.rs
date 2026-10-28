@@ -1,11 +1,21 @@
 use egui::{Color32, FontData, FontDefinitions, FontFamily};
 
-pub const ACCENT: Color32 = Color32::from_rgb(124, 108, 255);
-pub const TEXT: Color32 = Color32::from_rgb(245, 245, 247);
-pub const TEXT_DIM: Color32 = Color32::from_rgb(170, 170, 178);
-pub const BG: Color32 = Color32::from_rgb(10, 10, 12);
-pub const PANEL: Color32 = Color32::from_rgba_premultiplied(22, 22, 26, 238);
-pub const CLOSE_RED: Color32 = Color32::from_rgb(232, 17, 35);
+// Vault's palette (itself Open Darkroom's): neutral ramps and nothing else.
+pub const BG1: Color32 = Color32::from_rgb(0x00, 0x00, 0x00);
+pub const BG2: Color32 = Color32::from_rgb(0x10, 0x10, 0x10);
+pub const BG3: Color32 = Color32::from_rgb(0x1a, 0x1a, 0x1a);
+pub const BG4: Color32 = Color32::from_rgb(0x1f, 0x1f, 0x1f);
+pub const BG5: Color32 = Color32::from_rgb(0x26, 0x26, 0x26);
+pub const COLOR1: Color32 = Color32::from_rgb(0xe6, 0xe6, 0xe6);
+pub const COLOR2: Color32 = Color32::from_rgb(0xb3, 0xb3, 0xb3);
+pub const COLOR3: Color32 = Color32::from_rgb(0x63, 0x63, 0x63);
+pub const COLOR4: Color32 = Color32::from_rgb(0x4c, 0x4c, 0x4c);
+pub const COLOR5: Color32 = Color32::from_rgb(0x30, 0x30, 0x30);
+
+pub const TEXT: Color32 = COLOR1;
+pub const TEXT_DIM: Color32 = COLOR2;
+pub const BG: Color32 = BG1;
+pub const PANEL: Color32 = BG2;
 
 /// Named font family for semi-bold text (falls back to the regular face).
 pub fn semibold() -> FontFamily {
@@ -50,7 +60,11 @@ pub fn install(ctx: &egui::Context) {
         style.visuals.panel_fill = BG;
         style.visuals.window_fill = PANEL;
         style.visuals.override_text_color = Some(TEXT);
-        style.visuals.selection.bg_fill = ACCENT;
+        style.visuals.selection.bg_fill = COLOR4;
+        // Tooltips and popups: Vault's neutral panel.
+        style.visuals.window_stroke = egui::Stroke::new(1.0, BG5);
+        style.visuals.window_corner_radius = egui::CornerRadius::same(7);
+        style.visuals.popup_shadow = egui::Shadow { offset: [0, 6], blur: 20, spread: 0, color: Color32::from_black_alpha(128) };
         style.interaction.tooltip_delay = 0.4;
     });
 }

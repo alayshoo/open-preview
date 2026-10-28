@@ -9,8 +9,9 @@ import pathlib
 
 from PIL import Image
 
-A = (124, 108, 255)
-B = (72, 196, 255)
+# Neutral: graphite tile, lit from the top left, with a pale (#e6e6e6) glyph.
+A = (58, 58, 58)
+B = (20, 20, 20)
 SIZES = [16, 20, 24, 32, 40, 48, 64, 128, 256]
 
 
@@ -41,7 +42,7 @@ def render(n):
                 edge(fx, fy, 24, 46, 24, 18),
             )
             white = min(max(tri * s + 0.5, 0.0), 1.0)
-            rgb = [int(ci + (255 - ci) * white) for ci in c]
+            rgb = [int(ci + (230 - ci) * white) for ci in c]
             px[x, y] = (*rgb, int(cover * 255))
     return img
 

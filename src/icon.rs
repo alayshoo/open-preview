@@ -5,7 +5,8 @@ use egui::IconData;
 pub fn app_icon() -> IconData {
     const N: usize = 64;
     let mut rgba = vec![0u8; N * N * 4];
-    let (a, b) = ([124.0, 108.0, 255.0], [72.0, 196.0, 255.0]);
+    // Neutral: a dark graphite tile, lit from the top left, with a pale play glyph.
+    let (a, b) = ([58.0, 58.0, 58.0], [20.0, 20.0, 20.0]);
     for y in 0..N {
         for x in 0..N {
             let (fx, fy) = (x as f32 + 0.5, y as f32 + 0.5);
@@ -28,7 +29,7 @@ pub fn app_icon() -> IconData {
             let white = (tri + 0.5).clamp(0.0, 1.0);
             let o = (y * N + x) * 4;
             for i in 0..3 {
-                rgba[o + i] = (c[i] + (255.0 - c[i]) * white) as u8;
+                rgba[o + i] = (c[i] + (230.0 - c[i]) * white) as u8;
             }
             rgba[o + 3] = (cover * 255.0) as u8;
         }

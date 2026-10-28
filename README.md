@@ -7,19 +7,20 @@ A minimal, modern video player for Windows, written in Rust.
 Playback runs on **libmpv**, which is built on the same libraries as VLC:
 **FFmpeg** for demuxing and decoding, and **libass** for styled ASS/SSA/SRT
 subtitles. The UI is drawn with egui into the same OpenGL surface as the video.
-That lets the controls blend over the picture as translucent gradients instead
-of sitting in a separate toolbar.
+That lets the controls sit on the picture instead of in a separate toolbar.
 
 ## Design
 
-- **Borderless window.** The title bar and controls are black-to-transparent
-  gradients that float over the video.
-- **Auto-hiding chrome.** The controls fade out after about 2 s without mouse
-  movement, or as soon as the cursor leaves the window. What's left is a clean
-  floating video, ready to use as picture-in-picture.
-- **PiP mode** (`P`): shrinks the window to 400 px wide, keeps it always on
-  top, and docks it to the bottom-right corner of the screen. Press `P` again to
-  restore the previous size and position.
+- **Vault's look.** The title bar and the timeline are copied from Vault (and
+  so from Open Darkroom): its neutral grey palette, a solid 40 px title bar with
+  the title centred, and its timeline, which is cut into chapters, keeps a gap
+  around the head and grows the head as you take hold of it. No accent colour
+  anywhere.
+- **Borderless window that is its own picture-in-picture.** The title bar and
+  controls fade out after about 2 s without mouse movement, or as soon as the
+  cursor leaves the window, leaving just the video.
+- **Pin** (title bar, next to minimise, or `P`): keeps the window above other
+  apps even when it isn't focused.
 - **Aspect-locked resizing** on Windows, so the window always fits the video
   with no black bars. Drag anywhere to move the window and drag the edges to
   resize it.
@@ -27,7 +28,8 @@ of sitting in a separate toolbar.
   smaller.
 - **Subtitles move up** while the control bar is visible, so they never collide
   with it.
-- Windows 11 rounded corners, dark frame, and Segoe UI.
+- Windows 11 rounded corners, a dark frame, and Segoe UI. (Vault uses Figtree,
+  which isn't bundled here.)
 
 ## Features
 
@@ -101,11 +103,11 @@ Install `libmpv-dev`, or just `libmpv2`, then run `cargo run -- video.mp4`.
 | Z / X | Subtitle delay −/+ 0.1 s |
 | [ / ] / Backspace | Speed down / up / reset |
 | F, double-click | Fullscreen |
-| P | Picture-in-picture |
+| P | Keep on top (pin) |
 | PgUp / PgDn | Previous / next in playlist |
 | Ctrl+O / Ctrl+V | Open file / paste path or URL |
 | F1 | Shortcut overlay |
-| Esc | Leave fullscreen or PiP |
+| Esc | Leave fullscreen |
 
 ## Code layout
 
@@ -113,7 +115,7 @@ Install `libmpv-dev`, or just `libmpv2`, then run `cargo run -- video.mp4`.
 | --- | --- |
 | `src/mpv.rs` | Runtime-loaded libmpv bindings: client API and OpenGL render API |
 | `src/player.rs` | Mirrors mpv's properties (time, tracks, chapters…) and wraps its commands |
-| `src/app.rs` | Window behavior, auto-hide logic, PiP, menus, input handling |
+| `src/app.rs` | Window behavior, title bar, auto-hide logic, pin, menus, input handling |
 | `src/ui/` | Vector icons, theme, custom widgets (seek bar, sliders, menus) |
 | `src/platform.rs` | Windows: DWM rounded corners, aspect-locked resizing, work-area lookup |
 

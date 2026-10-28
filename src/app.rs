@@ -15,11 +15,13 @@ use crate::platform;
 use crate::player::{Player, TrackKind, format_time, is_subtitle};
 use crate::ui::icons::{self, Icon};
 use crate::ui::theme;
-use crate::ui::widgets::{self, SeekBar, SeekEvent};
+use crate::ui::widgets::{self, SeekBar, SeekEvent, WindowGlyph};
 
 /// Seconds of pointer inactivity before the controls fade out.
 const HIDE_AFTER: f64 = 2.2;
 const TOP_BAR_H: f32 = 40.0;
+/// Width of each window control in the title bar.
+const CONTROL_W: f32 = 44.0;
 const EDGE_GRIP: f32 = 6.0;
 const SPEEDS: &[f64] = &[0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 3.0];
 
@@ -45,13 +47,6 @@ enum Menu {
     Speed,
 }
 
-/// Window geometry saved before entering picture-in-picture.
-struct SavedGeometry {
-    pos: Pos2,
-    size: Vec2,
-    maximized: bool,
-}
-
 #[derive(Default)]
 struct Video {
     ctx: Option<RenderContext>,
@@ -72,10 +67,14 @@ pub struct LumenApp {
     last_scrub_sent: f64,
     toast: Option<(String, f64)>,
     flash: Option<(Icon, f64)>,
-    pip: Option<SavedGeometry>,
+    /// Always on top. The window is already the picture-in-picture; pinning
+    /// keeps it above other apps when it loses focus.
+    pinned: bool,
     show_help: bool,
     /// Last `sub-pos` sent to mpv; subtitles rise above the control bar.
     sub_pos: f64,
+    /// Size of the open menu last frame; see `show_menu`.
+    menu_size: Option<Vec2>,
     press_on_edge: bool,
     wheel_accum: f32,
     window_title: String,
@@ -112,9 +111,10 @@ impl LumenApp {
             last_scrub_sent: 0.0,
             toast: None,
             flash: None,
-            pip: None,
+            pinned: false,
             show_help: false,
             sub_pos: 100.0,
+            menu_size: None,
             press_on_edge: false,
             wheel_accum: 0.0,
             window_title: String::new(),
@@ -138,58 +138,14 @@ impl LumenApp {
 
     fn toggle_fullscreen(&mut self, ctx: &egui::Context) {
         let fs = Self::is_fullscreen(ctx);
-        if !fs && self.pip.is_some() {
-            self.exit_pip(ctx);
-        }
         ctx.send_viewport_cmd(ViewportCommand::Fullscreen(!fs));
     }
 
-    fn toggle_pip(&mut self, ctx: &egui::Context) {
-        if self.pip.is_some() {
-            self.exit_pip(ctx);
-        } else {
-            self.enter_pip(ctx);
-        }
-    }
-
-    fn enter_pip(&mut self, ctx: &egui::Context) {
-        let info = ctx.input(|i| i.viewport().clone());
-        let (Some(outer), Some(inner)) = (info.outer_rect, info.inner_rect) else { return };
-        let maximized = info.maximized.unwrap_or(false);
-        self.pip = Some(SavedGeometry { pos: outer.min, size: inner.size(), maximized });
-        if info.fullscreen.unwrap_or(false) {
-            ctx.send_viewport_cmd(ViewportCommand::Fullscreen(false));
-        }
-        if maximized {
-            ctx.send_viewport_cmd(ViewportCommand::Maximized(false));
-        }
-
-        let aspect = self.player.aspect().unwrap_or(16.0 / 9.0);
-        let size = if aspect >= 1.0 { vec2(400.0, 400.0 / aspect) } else { vec2(300.0 * aspect, 300.0) };
-
-        let ppp = info.native_pixels_per_point.unwrap_or(1.0);
-        let area = platform::work_area()
-            .map(|[l, t, r, b]| Rect::from_min_max(pos2(l as f32, t as f32) / ppp, pos2(r as f32, b as f32) / ppp))
-            .unwrap_or_else(|| {
-                let m = info.monitor_size.unwrap_or(vec2(1920.0, 1080.0));
-                Rect::from_min_size(Pos2::ZERO, m - vec2(0.0, 48.0))
-            });
-        let pos = area.max - size - vec2(24.0, 24.0);
-
-        ctx.send_viewport_cmd(ViewportCommand::WindowLevel(WindowLevel::AlwaysOnTop));
-        ctx.send_viewport_cmd(ViewportCommand::InnerSize(size));
-        ctx.send_viewport_cmd(ViewportCommand::OuterPosition(pos));
-        self.toast(ctx, "Picture-in-picture");
-    }
-
-    fn exit_pip(&mut self, ctx: &egui::Context) {
-        let Some(saved) = self.pip.take() else { return };
-        ctx.send_viewport_cmd(ViewportCommand::WindowLevel(WindowLevel::Normal));
-        ctx.send_viewport_cmd(ViewportCommand::InnerSize(saved.size));
-        ctx.send_viewport_cmd(ViewportCommand::OuterPosition(saved.pos));
-        if saved.maximized {
-            ctx.send_viewport_cmd(ViewportCommand::Maximized(true));
-        }
+    fn toggle_pin(&mut self, ctx: &egui::Context) {
+        self.pinned = !self.pinned;
+        let level = if self.pinned { WindowLevel::AlwaysOnTop } else { WindowLevel::Normal };
+        ctx.send_viewport_cmd(ViewportCommand::WindowLevel(level));
+        self.toast(ctx, if self.pinned { "Pinned on top" } else { "Unpinned" });
     }
 
     /// Resizes the window to hug the video when a new video size arrives.
@@ -375,7 +331,7 @@ impl LumenApp {
             Key::ArrowDown => self.change_volume(ctx, -5.0),
             Key::M => self.toggle_mute(ctx),
             Key::F | Key::F11 => self.toggle_fullscreen(ctx),
-            Key::P => self.toggle_pip(ctx),
+            Key::P => self.toggle_pin(ctx),
             Key::S => self.cycle_track(ctx, TrackKind::Sub),
             Key::A => self.cycle_track(ctx, TrackKind::Audio),
             Key::Z => self.adjust_sub_delay(ctx, -0.1),
@@ -403,8 +359,6 @@ impl LumenApp {
                     self.menu = None;
                 } else if Self::is_fullscreen(ctx) {
                     ctx.send_viewport_cmd(ViewportCommand::Fullscreen(false));
-                } else if self.pip.is_some() {
-                    self.exit_pip(ctx);
                 }
             }
             _ => {}
@@ -475,82 +429,86 @@ impl LumenApp {
 
     fn paint_empty_state(&self, ui: &Ui, screen: Rect, hovered: bool) {
         let p = ui.painter();
-        p.rect_filled(screen, 0.0, theme::BG);
-        radial_glow(p, screen.center() - vec2(0.0, 30.0), screen.width().max(screen.height()) * 0.55, theme::ACCENT.gamma_multiply(0.16));
+        p.rect_filled(screen, 0.0, theme::BG1);
 
         let small = screen.height() < 260.0;
-        let c = screen.center() - vec2(0.0, if small { 10.0 } else { 30.0 });
-        let tile = Rect::from_center_size(c, Vec2::splat(if small { 56.0 } else { 84.0 }));
-        let lift = ui.ctx().animate_bool_with_time(Id::unique("empty-hover"), hovered, 0.2);
-        p.add(Shadow { offset: [0, 8], blur: 32, spread: 0, color: theme::ACCENT.gamma_multiply(0.25 + 0.25 * lift) }.as_shape(tile, CornerRadius::same(24)));
-        p.rect_filled(tile, 24.0, Color32::from_rgb(28, 26, 40));
-        p.rect_stroke(tile, 24.0, Stroke::new(1.0, Color32::from_white_alpha(22)), StrokeKind::Inside);
-        icons::paint(p, Icon::Play, tile.shrink(tile.width() * 0.28).translate(vec2(2.0, 0.0)), theme::ACCENT);
+        let c = screen.center() - vec2(0.0, if small { 10.0 } else { 24.0 });
+        let tile = Rect::from_center_size(c, Vec2::splat(if small { 52.0 } else { 72.0 }));
+        let lift = ui.ctx().animate_bool_with_time(Id::unique("empty-hover"), hovered, 0.15);
+        p.add(Shadow { offset: [0, 12], blur: 32, spread: 0, color: Color32::from_black_alpha(140) }.as_shape(tile, CornerRadius::same(14)));
+        p.rect_filled(tile, 14.0, theme::BG2);
+        p.rect_stroke(tile, 14.0, Stroke::new(1.0, theme::BG5), StrokeKind::Inside);
+        let icon_color = if lift > 0.5 { theme::COLOR1 } else { theme::COLOR2 };
+        icons::paint(p, Icon::Play, tile.shrink(tile.width() * 0.3).translate(vec2(1.5, 0.0)), icon_color);
 
-        let y = tile.bottom() + if small { 22.0 } else { 34.0 };
-        p.text(pos2(c.x, y), Align2::CENTER_CENTER, "Drop a video to start", FontId::new(if small { 15.0 } else { 20.0 }, theme::semibold()), theme::TEXT);
-        p.text(pos2(c.x, y + 26.0), Align2::CENTER_CENTER, "or click anywhere to browse  ·  Ctrl+O", FontId::proportional(13.5), theme::TEXT_DIM);
+        let y = tile.bottom() + if small { 20.0 } else { 28.0 };
+        p.text(pos2(c.x, y), Align2::CENTER_CENTER, "Drop a video to start", FontId::proportional(if small { 13.0 } else { 15.0 }), theme::COLOR2);
+        p.text(pos2(c.x, y + 22.0), Align2::CENTER_CENTER, "or click anywhere to browse  ·  Ctrl+O", FontId::proportional(12.0), theme::COLOR3);
         if let Some(err) = &self.player.last_error {
-            p.text(pos2(c.x, y + 54.0), Align2::CENTER_CENTER, format!("Couldn't play that file: {err}"), FontId::proportional(13.0), Color32::from_rgb(255, 120, 120));
+            p.text(pos2(c.x, y + 46.0), Align2::CENTER_CENTER, format!("Couldn't play that file: {err}"), FontId::proportional(12.0), theme::COLOR2);
         }
     }
 
+    /// Vault's title bar: the help button leading, the title centred against
+    /// the window, and the window controls trailing. Solid over a video; on the
+    /// empty screen it drops the fill and rule, as Vault's picker does.
     fn top_bar(&mut self, ui: &mut Ui, ctx: &egui::Context, screen: Rect) {
         let width = screen.width();
         let fs = Self::is_fullscreen(ctx);
         let maximized = Self::is_maximized(ctx);
         let p = ui.painter().clone();
-        if self.player.has_media() {
-            widgets::vertical_gradient(&p, Rect::from_min_size(screen.min, vec2(width, 110.0)), 0.72, 0.0);
-        }
-
         let bar = Rect::from_min_size(screen.min, vec2(width, TOP_BAR_H));
         self.top_rect = bar;
-        let mut x = bar.right();
-        let cap = vec2(46.0, TOP_BAR_H);
-        let tiny = width < 360.0;
+        if self.player.has_media() {
+            p.rect_filled(bar, 0.0, theme::BG2);
+            p.hline(bar.x_range(), bar.bottom() - 0.5, Stroke::new(1.0, theme::BG4));
+        }
 
-        let mut place = |w: f32| {
-            x -= w;
-            Rect::from_min_size(pos2(x, bar.top()), vec2(w, TOP_BAR_H))
+        // Window controls, right to left: close, maximise, minimise, pin.
+        let tiny = width < 360.0;
+        let mut x = bar.right();
+        let mut place = || {
+            x -= CONTROL_W;
+            Rect::from_min_size(pos2(x, bar.top()), vec2(CONTROL_W, TOP_BAR_H))
         };
-        let close_r = place(cap.x);
-        if widgets::caption_button(ui, close_r, Icon::Close, Id::unique("close"), true).clicked() {
+        if widgets::window_control(ui, place(), WindowGlyph::Close, Id::unique("close"), "").clicked() {
             ctx.send_viewport_cmd(ViewportCommand::Close);
         }
-        if !fs && !tiny {
-            let r = place(cap.x);
-            let icon = if maximized { Icon::Restore } else { Icon::Maximize };
-            if widgets::caption_button(ui, r, icon, Id::unique("max"), false).clicked() {
-                if self.pip.is_some() {
-                    self.exit_pip(ctx);
-                }
-                ctx.send_viewport_cmd(ViewportCommand::Maximized(!maximized));
-            }
-            let r = place(cap.x);
-            if widgets::caption_button(ui, r, Icon::Minimize, Id::unique("min"), false).clicked() {
-                ctx.send_viewport_cmd(ViewportCommand::Minimized(true));
-            }
-        }
         if fs {
-            let r = place(cap.x);
-            if widgets::caption_button(ui, r, Icon::FullscreenExit, Id::unique("fs-exit"), false).clicked() {
+            if widgets::window_control(ui, place(), WindowGlyph::ExitFullscreen, Id::unique("fs-exit"), "Exit fullscreen (Esc)").clicked() {
                 ctx.send_viewport_cmd(ViewportCommand::Fullscreen(false));
             }
+        } else if !tiny {
+            let glyph = if maximized { WindowGlyph::Restore } else { WindowGlyph::Maximize };
+            if widgets::window_control(ui, place(), glyph, Id::unique("max"), "").clicked() {
+                ctx.send_viewport_cmd(ViewportCommand::Maximized(!maximized));
+            }
         }
+        if !tiny
+            && widgets::window_control(ui, place(), WindowGlyph::Minimize, Id::unique("min"), "").clicked() {
+                ctx.send_viewport_cmd(ViewportCommand::Minimized(true));
+            }
+        let pin_tip = if self.pinned { "Unpin (P)" } else { "Keep on top (P)" };
+        if widgets::window_control(ui, place(), WindowGlyph::Pin { on: self.pinned }, Id::unique("pin"), pin_tip).clicked() {
+            self.toggle_pin(ctx);
+        }
+
         if !tiny {
-            let r = place(cap.x);
-            if widgets::caption_button(ui, r, Icon::Keyboard, Id::unique("help"), false).on_hover_text("Shortcuts (F1)").clicked() {
+            let r = Rect::from_center_size(pos2(bar.left() + 8.0 + 16.0, bar.center().y), vec2(32.0, 32.0));
+            if widgets::flat_button(ui, r, Icon::Keyboard, Id::unique("help"), "Shortcuts (F1)").clicked() {
                 self.show_help = !self.show_help;
             }
         }
 
-        if width > 240.0 {
+        // Centred on the window, clear of both groups, ellipsed rather than
+        // running under them.
+        let max_w = width - 340.0;
+        if max_w > 40.0 {
             let title = if self.player.has_media() && !self.player.title.is_empty() { self.player.title.as_str() } else { "Lumen" };
-            let mut job = LayoutJob::simple_singleline(title.to_string(), FontId::new(13.5, theme::semibold()), theme::TEXT);
-            job.wrap = TextWrapping { max_width: (x - bar.left() - 28.0).max(10.0), max_rows: 1, break_anywhere: true, overflow_character: Some('…') };
+            let mut job = LayoutJob::simple_singleline(title.to_string(), FontId::proportional(13.0), theme::COLOR3);
+            job.wrap = TextWrapping { max_width: max_w, max_rows: 1, break_anywhere: true, overflow_character: Some('…') };
             let galley = p.layout_job(job);
-            p.galley(pos2(bar.left() + 16.0, bar.center().y - galley.size().y / 2.0), galley, theme::TEXT);
+            p.galley(bar.center() - galley.size() / 2.0, galley, theme::COLOR3);
         }
     }
 
@@ -561,9 +519,11 @@ impl LumenApp {
         let p = ui.painter().clone();
         widgets::vertical_gradient(&p, Rect::from_min_max(pos2(screen.left(), screen.bottom() - 160.0), screen.max), 0.0, 0.86);
 
+        // Vault's controls block: 16px sides, a 22px timeline, 4px, then the row.
         let row_y = screen.bottom() - 30.0;
-        let seek_rect = Rect::from_min_max(pos2(screen.left() + 18.0, row_y - 42.0), pos2(screen.right() - 18.0, row_y - 22.0));
-        self.bottom_rect = Rect::from_min_max(pos2(screen.left(), seek_rect.top() - 8.0), screen.max);
+        let seek_bottom = row_y - 18.0 - 4.0;
+        let seek_rect = Rect::from_min_max(pos2(screen.left() + 16.0, seek_bottom - 22.0), pos2(screen.right() - 16.0, seek_bottom));
+        self.bottom_rect = Rect::from_min_max(pos2(screen.left(), seek_rect.top() - 22.0), screen.max);
 
         // Seek bar
         let player = &self.player;
@@ -577,8 +537,9 @@ impl LumenApp {
             let now = ctx.input(|i| i.time);
             match seek.show(ui, seek_rect, Id::unique("seek")) {
                 SeekEvent::Scrub(t) => {
+                    let moved = self.scrubbing.is_none_or(|prev| (prev - t).abs() > 0.01);
                     self.scrubbing = Some(t);
-                    if now - self.last_scrub_sent > 0.06 {
+                    if moved && now - self.last_scrub_sent > 0.06 {
                         self.player.seek_absolute(t, false);
                         self.last_scrub_sent = now;
                     }
@@ -680,10 +641,6 @@ impl LumenApp {
         if widgets::icon_button(ui, prev(btn), fs_icon, Id::unique("fs"), "Fullscreen (F)").clicked() {
             self.toggle_fullscreen(ctx);
         }
-        let pip_icon = if self.pip.is_some() { Icon::PipExit } else { Icon::Pip };
-        if widgets::icon_button(ui, prev(btn), pip_icon, Id::unique("pip"), "Picture-in-picture (P)").clicked() {
-            self.toggle_pip(ctx);
-        }
         let menu_btn = |ui: &mut Ui, r: Rect, menu: Menu, resp: egui::Response, current: &mut Option<(Menu, Rect)>| {
             if resp.clicked() {
                 *current = match current {
@@ -727,18 +684,22 @@ impl LumenApp {
         let mut close = false;
         let mut want_sub_file = false;
 
-        let area = Area::new(Id::unique("menu-panel"))
+        // One area per menu: a bottom-anchored area is placed using the size it
+        // had last frame, so sharing one between menus of different heights
+        // placed each new menu by the previous one's size and cut it off.
+        let area = Area::new(Id::unique(("menu-panel", menu as u8)))
             .order(Order::Foreground)
             .fixed_pos(pos)
             .pivot(Align2::RIGHT_BOTTOM)
             .constrain_to(screen.shrink(6.0))
+            .fade_in(false)
             .show(ctx, |ui| {
                 Frame::new()
                     .fill(theme::PANEL)
-                    .corner_radius(14.0)
-                    .stroke(Stroke::new(1.0, Color32::from_white_alpha(18)))
-                    .shadow(Shadow { offset: [0, 10], blur: 30, spread: 0, color: Color32::from_black_alpha(140) })
-                    .inner_margin(Margin::same(6))
+                    .corner_radius(10.0)
+                    .stroke(Stroke::new(1.0, theme::BG5))
+                    .shadow(Shadow { offset: [0, 12], blur: 32, spread: 0, color: Color32::from_black_alpha(140) })
+                    .inner_margin(Margin::same(4))
                     .show(ui, |ui| {
                         ui.set_width(250.0);
                         ui.spacing_mut().item_spacing.y = 1.0;
@@ -801,6 +762,13 @@ impl LumenApp {
             });
 
         let menu_rect = area.response.rect;
+        // Whenever the content's size changes (a track list arriving, a
+        // different menu), draw again so it's placed by its real size, even
+        // while paused and nothing else is asking for frames.
+        if self.menu_size != Some(menu_rect.size()) {
+            self.menu_size = Some(menu_rect.size());
+            ctx.request_repaint();
+        }
         let clicked_outside = ctx.input(|i| {
             i.pointer.any_pressed()
                 && i.pointer.interact_pos().is_some_and(|p| !menu_rect.contains(p) && !anchor.contains(p))
@@ -864,10 +832,10 @@ impl LumenApp {
             ("Z / X", "Subtitle delay ∓0.1s"),
             ("[ / ] / ⌫", "Speed down / up / reset"),
             ("F / Double-click", "Fullscreen"),
-            ("P", "Picture-in-picture"),
+            ("P", "Keep on top"),
             ("PgUp / PgDn", "Previous / next in playlist"),
             ("Ctrl+O / Ctrl+V", "Open file / paste path or URL"),
-            ("Esc", "Exit fullscreen / PiP"),
+            ("Esc", "Exit fullscreen"),
         ];
         let mut open = true;
         Area::new(Id::unique("help-panel"))
@@ -877,21 +845,21 @@ impl LumenApp {
             .show(ctx, |ui| {
                 Frame::new()
                     .fill(theme::PANEL)
-                    .corner_radius(16.0)
-                    .stroke(Stroke::new(1.0, Color32::from_white_alpha(18)))
-                    .shadow(Shadow { offset: [0, 12], blur: 40, spread: 0, color: Color32::from_black_alpha(150) })
+                    .corner_radius(10.0)
+                    .stroke(Stroke::new(1.0, theme::BG5))
+                    .shadow(Shadow { offset: [0, 12], blur: 32, spread: 0, color: Color32::from_black_alpha(140) })
                     .inner_margin(Margin::symmetric(20, 16))
                     .show(ui, |ui| {
                         ui.set_width(340.0);
                         ui.horizontal(|ui| {
-                            ui.label(egui::RichText::new("Keyboard shortcuts").font(FontId::new(16.0, theme::semibold())));
+                            ui.label(egui::RichText::new("Keyboard shortcuts").color(theme::COLOR1).size(15.0));
                         });
                         ui.add_space(8.0);
                         ScrollArea::vertical().max_height(screen.height() - 120.0).show(ui, |ui| {
                             for (k, v) in shortcuts {
                                 ui.horizontal(|ui| {
-                                    ui.add_sized([130.0, 22.0], egui::Label::new(egui::RichText::new(*k).color(theme::ACCENT).font(FontId::new(13.0, theme::semibold()))));
-                                    ui.label(egui::RichText::new(*v).color(theme::TEXT).size(13.0));
+                                    ui.add_sized([130.0, 22.0], egui::Label::new(egui::RichText::new(*k).color(theme::COLOR1).font(FontId::proportional(12.5))));
+                                    ui.label(egui::RichText::new(*v).color(theme::COLOR2).size(12.5));
                                 });
                             }
                         });
@@ -1032,8 +1000,8 @@ impl eframe::App for LumenApp {
         if hovering_files {
             let p = root.painter();
             let r = screen.shrink(10.0);
-            p.rect_filled(r, 16.0, theme::ACCENT.gamma_multiply(0.12));
-            p.rect_stroke(r, 16.0, Stroke::new(2.0, theme::ACCENT), StrokeKind::Inside);
+            p.rect_filled(r, 14.0, theme::BG1.gamma_multiply(0.6));
+            p.rect_stroke(r, 14.0, Stroke::new(1.5, theme::COLOR3), StrokeKind::Inside);
             p.text(r.center(), Align2::CENTER_CENTER, "Drop to play", FontId::new(18.0, theme::semibold()), theme::TEXT);
         }
 
@@ -1091,8 +1059,8 @@ impl eframe::App for FatalApp {
         job.halign = egui::Align::Center;
         let g = p.layout_job(job);
         p.galley(pos2(c.x, c.y + 20.0), g, theme::TEXT_DIM);
-        let close = Rect::from_min_size(pos2(screen.right() - 46.0, screen.top()), vec2(46.0, TOP_BAR_H));
-        if widgets::caption_button(root, close, Icon::Close, Id::unique("close"), true).clicked() {
+        let close = Rect::from_min_size(pos2(screen.right() - CONTROL_W, screen.top()), vec2(CONTROL_W, TOP_BAR_H));
+        if widgets::window_control(root, close, WindowGlyph::Close, Id::unique("close"), "").clicked() {
             ctx.send_viewport_cmd(ViewportCommand::Close);
         }
     }
@@ -1129,19 +1097,4 @@ fn resize_cursor(d: ResizeDirection) -> CursorIcon {
         ResizeDirection::NorthWest | ResizeDirection::SouthEast => CursorIcon::ResizeNwSe,
         ResizeDirection::NorthEast | ResizeDirection::SouthWest => CursorIcon::ResizeNeSw,
     }
-}
-
-/// Soft radial glow as a triangle fan.
-fn radial_glow(p: &egui::Painter, center: Pos2, radius: f32, color: Color32) {
-    let mut mesh = egui::Mesh::default();
-    mesh.colored_vertex(center, color);
-    let n = 64;
-    for i in 0..=n {
-        let a = i as f32 / n as f32 * std::f32::consts::TAU;
-        mesh.colored_vertex(center + Vec2::angled(a) * radius, Color32::TRANSPARENT);
-        if i > 0 {
-            mesh.add_triangle(0, i, i + 1);
-        }
-    }
-    p.add(egui::Shape::mesh(mesh));
 }

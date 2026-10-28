@@ -3,7 +3,7 @@
 use std::f32::consts::{PI, TAU};
 
 use egui::epaint::PathShape;
-use egui::{Align2, Color32, FontId, Painter, Pos2, Rect, Shape, Stroke, StrokeKind, Vec2, pos2, vec2};
+use egui::{Align2, Color32, FontId, Painter, Pos2, Rect, Shape, Stroke, StrokeKind, Vec2, pos2};
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Icon {
@@ -18,14 +18,8 @@ pub enum Icon {
     Muted,
     Subtitles,
     Audio,
-    Pip,
-    PipExit,
     Fullscreen,
     FullscreenExit,
-    Close,
-    Minimize,
-    Maximize,
-    Restore,
     Check,
     Keyboard,
 }
@@ -62,13 +56,25 @@ pub fn paint(p: &Painter, icon: Icon, rect: Rect, color: Color32) {
             fill(vec![at(9.0, 1.8), at(13.2, 5.6), at(8.0, 7.6)]);
         }
         Icon::Back10 | Icon::Forward10 => {
-            let fwd = icon == Icon::Forward10;
-            let (a0, a1) = if fwd { (-PI * 0.5, PI * 1.25) } else { (-PI * 0.5, -PI * 2.25) };
-            line(arc(12.0, 12.5, 8.0, a0, a1));
-            let tip = at(12.0, 4.5);
-            let d = if fwd { -1.0 } else { 1.0 };
-            fill(vec![tip + vec2(d * 3.6 * s, -3.0 * s), tip + vec2(d * 3.6 * s, 3.0 * s), tip + vec2(-d * 1.0 * s, 0.0)]);
-            p.text(at(12.0, 13.0), Align2::CENTER_CENTER, "10", FontId::proportional(7.5 * s), color);
+            // Vault's SkipIcon: an arch over the numeral, the arrowhead on the
+            // side it skips towards. Arch "M5 10.5A7.5 7.5 0 0 1 19 10.5",
+            // whose centre sits 2.69 below the chord.
+            let st = Stroke::new(1.6 * s, color);
+            let half = (7.0f32 / 7.5).acos();
+            let pts: Vec<Pos2> = (0..=24)
+                .map(|i| {
+                    let a = -PI + half + (PI - 2.0 * half) * i as f32 / 24.0;
+                    at(12.0 + 7.5 * a.cos(), 13.19 + 7.5 * a.sin())
+                })
+                .collect();
+            p.add(Shape::Path(PathShape::line(pts, st)));
+            let head = if icon == Icon::Forward10 {
+                vec![at(19.3, 6.9), at(19.0, 10.5), at(16.4, 8.1)]
+            } else {
+                vec![at(4.7, 6.9), at(5.0, 10.5), at(7.6, 8.1)]
+            };
+            p.add(Shape::Path(PathShape::line(head, st)));
+            p.text(at(12.0, 16.6), Align2::CENTER_CENTER, "10", FontId::new(8.5 * s, super::theme::semibold()), color);
         }
         Icon::Prev | Icon::Next => {
             let m = |x: f32| if icon == Icon::Next { x } else { 24.0 - x };
@@ -108,15 +114,6 @@ pub fn paint(p: &Painter, icon: Icon, rect: Rect, color: Color32) {
                 line(vec![at(x - 1.5, 12.0 - h / 2.0), at(x - 1.5, 12.0 + h / 2.0)]);
             }
         }
-        Icon::Pip | Icon::PipExit => {
-            p.rect_stroke(Rect::from_min_max(at(2.5, 4.5), at(21.5, 19.5)), 2.5 * s, stroke, StrokeKind::Middle);
-            let inner = if icon == Icon::Pip {
-                Rect::from_min_max(at(12.0, 11.5), at(19.0, 17.0))
-            } else {
-                Rect::from_min_max(at(5.0, 7.0), at(12.0, 12.5))
-            };
-            p.rect_filled(inner, 1.2 * s, color);
-        }
         Icon::Fullscreen | Icon::FullscreenExit => {
             let out = icon == Icon::Fullscreen;
             for (cx, cy) in [(4.0, 4.0), (20.0, 4.0), (4.0, 20.0), (20.0, 20.0)] {
@@ -126,23 +123,6 @@ pub fn paint(p: &Painter, icon: Icon, rect: Rect, color: Color32) {
                 let sign = if out { 1.0 } else { -1.0 };
                 line(vec![at(cx + dx * 5.0 * sign, cy), at(cx, cy), at(cx, cy + dy * 5.0 * sign)]);
             }
-        }
-        Icon::Close => {
-            let st = Stroke::new(w * 0.7, color);
-            p.line_segment([at(7.0, 7.0), at(17.0, 17.0)], st);
-            p.line_segment([at(17.0, 7.0), at(7.0, 17.0)], st);
-        }
-        Icon::Minimize => {
-            p.line_segment([at(7.0, 12.0), at(17.0, 12.0)], Stroke::new(w * 0.7, color));
-        }
-        Icon::Maximize => {
-            let st = Stroke::new(w * 0.7, color);
-            p.rect_stroke(Rect::from_min_max(at(7.0, 7.0), at(17.0, 17.0)), 1.5 * s, st, StrokeKind::Middle);
-        }
-        Icon::Restore => {
-            let st = Stroke::new(w * 0.7, color);
-            p.rect_stroke(Rect::from_min_max(at(7.0, 9.5), at(14.5, 17.0)), 1.2 * s, st, StrokeKind::Middle);
-            p.add(Shape::Path(PathShape::line(vec![at(9.5, 7.0), at(17.0, 7.0), at(17.0, 14.5)], st)));
         }
         Icon::Check => {
             line(vec![at(5.0, 12.5), at(10.0, 17.5), at(19.5, 7.0)]);

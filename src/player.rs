@@ -16,6 +16,12 @@ pub enum TrackKind {
 }
 
 #[derive(Clone, Debug)]
+pub struct Chapter {
+    pub start: f64,
+    pub title: String,
+}
+
+#[derive(Clone, Debug)]
 pub struct Track {
     pub id: i64,
     pub kind: TrackKind,
@@ -63,7 +69,7 @@ pub struct Player {
     pub playlist_count: i64,
     pub playlist_pos: i64,
     pub tracks: Vec<Track>,
-    pub chapters: Vec<f64>,
+    pub chapters: Vec<Chapter>,
     pub sub_scale: f64,
     pub sub_delay: f64,
     /// Set when the video's display size changes, consumed by the window logic.
@@ -234,7 +240,7 @@ impl Player {
                     (None, Some(l)) => l.clone(),
                     (None, None) => format!("Track {id}"),
                 };
-                let mut detail = codec.to_uppercase();
+                let mut detail = codec_name(&codec);
                 if kind == TrackKind::Audio
                     && let Some(ch) = m.get_i64(&p("demux-channel-count")) {
                         detail = format!("{detail} {}", channels_label(ch));
@@ -255,7 +261,13 @@ impl Player {
 
     fn reload_chapters(&mut self) {
         let count = self.mpv.get_i64("chapter-list/count").unwrap_or(0);
-        self.chapters = (0..count).filter_map(|n| self.mpv.get_f64(&format!("chapter-list/{n}/time"))).collect();
+        self.chapters = (0..count)
+            .filter_map(|n| {
+                let start = self.mpv.get_f64(&format!("chapter-list/{n}/time"))?;
+                let title = self.mpv.get_str(&format!("chapter-list/{n}/title")).unwrap_or_default();
+                Some(Chapter { start, title })
+            })
+            .collect();
     }
 
     pub fn tracks_of(&self, kind: TrackKind) -> impl Iterator<Item = &Track> {
@@ -354,6 +366,34 @@ pub fn is_subtitle(path: &str) -> bool {
         .extension()
         .and_then(|e| e.to_str())
         .is_some_and(|e| SUBTITLE_EXTS.contains(&e.to_ascii_lowercase().as_str()))
+}
+
+/// How a codec is usually written, rather than mpv's lowercase id.
+fn codec_name(codec: &str) -> String {
+    let name = match codec {
+        "subrip" => "SubRip",
+        "ass" | "ssa" => "ASS",
+        "webvtt" => "WebVTT",
+        "hdmv_pgs_subtitle" => "PGS",
+        "dvd_subtitle" => "VobSub",
+        "mov_text" => "Timed text",
+        "aac" => "AAC",
+        "ac3" => "AC-3",
+        "eac3" => "E-AC-3",
+        "dts" => "DTS",
+        "truehd" => "TrueHD",
+        "flac" => "FLAC",
+        "opus" => "Opus",
+        "vorbis" => "Vorbis",
+        "mp3" => "MP3",
+        "pcm_s16le" | "pcm_s24le" | "pcm_s32le" | "pcm_f32le" => "PCM",
+        "h264" => "H.264",
+        "hevc" => "HEVC",
+        "av1" => "AV1",
+        "vp9" => "VP9",
+        other => return other.to_string(),
+    };
+    name.to_string()
 }
 
 fn channels_label(ch: i64) -> String {

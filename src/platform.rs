@@ -1,5 +1,5 @@
-//! OS integration. Windows gets rounded corners, a dark frame, aspect-ratio
-//! locked resizing and work-area queries; other platforms use no-ops.
+//! OS integration. Windows gets rounded corners, a dark frame and
+//! aspect-ratio locked resizing; other platforms use no-ops.
 
 #[cfg(not(windows))]
 use raw_window_handle::HasWindowHandle;
@@ -14,38 +14,24 @@ pub fn init(_window: &impl HasWindowHandle) {}
 #[cfg(not(windows))]
 pub fn set_aspect_lock(_aspect: Option<f32>) {}
 
-/// Work area (desktop minus taskbar) of the window's monitor, in physical pixels.
-#[cfg(not(windows))]
-pub fn work_area() -> Option<[i32; 4]> {
-    None
-}
-
 #[cfg(windows)]
 mod win {
     use std::ffi::c_void;
-    use std::sync::atomic::{AtomicIsize, AtomicU32, Ordering};
+    use std::sync::atomic::{AtomicU32, Ordering};
 
     use raw_window_handle::{HasWindowHandle, RawWindowHandle};
     use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, RECT, WPARAM};
     use windows::Win32::Graphics::Dwm::{
         DWMWA_USE_IMMERSIVE_DARK_MODE, DWMWA_WINDOW_CORNER_PREFERENCE, DWMWCP_ROUND, DwmSetWindowAttribute,
     };
-    use windows::Win32::Graphics::Gdi::{GetMonitorInfoW, MONITOR_DEFAULTTONEAREST, MONITORINFO, MonitorFromWindow};
     use windows::Win32::UI::Shell::{DefSubclassProc, SetWindowSubclass};
     use windows::Win32::UI::WindowsAndMessaging::WM_SIZING;
 
-    static HWND_RAW: AtomicIsize = AtomicIsize::new(0);
     static ASPECT_BITS: AtomicU32 = AtomicU32::new(0);
-
-    fn hwnd() -> Option<HWND> {
-        let raw = HWND_RAW.load(Ordering::Relaxed);
-        (raw != 0).then_some(HWND(raw as *mut c_void))
-    }
 
     pub fn init(window: &impl HasWindowHandle) {
         let Ok(handle) = window.window_handle() else { return };
         let RawWindowHandle::Win32(h) = handle.as_raw() else { return };
-        HWND_RAW.store(h.hwnd.get(), Ordering::Relaxed);
         let hwnd = HWND(h.hwnd.get() as *mut c_void);
         unsafe {
             // Windows 11: rounded corners and a dark frame for the borderless window.
@@ -69,19 +55,6 @@ mod win {
 
     pub fn set_aspect_lock(aspect: Option<f32>) {
         ASPECT_BITS.store(aspect.filter(|a| a.is_finite() && *a > 0.0).map_or(0, f32::to_bits), Ordering::Relaxed);
-    }
-
-    pub fn work_area() -> Option<[i32; 4]> {
-        let hwnd = hwnd()?;
-        unsafe {
-            let monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
-            let mut info = MONITORINFO { cbSize: size_of::<MONITORINFO>() as u32, ..Default::default() };
-            if !GetMonitorInfoW(monitor, &mut info).as_bool() {
-                return None;
-            }
-            let r = info.rcWork;
-            Some([r.left, r.top, r.right, r.bottom])
-        }
     }
 
     unsafe extern "system" fn subclass_proc(

@@ -1,6 +1,7 @@
 //! Custom-painted controls.
 
-use egui::epaint::{Mesh, RectShape, Shadow};
+use egui::epaint::{Mesh, PathShape, RectShape, Shadow};
+use egui::text::{LayoutJob, TextWrapping};
 use egui::{
     Align2, Color32, CornerRadius, CursorIcon, FontId, Id, Painter, Pos2, Rect, Response, Sense, Shape, Stroke,
     StrokeKind, Ui, pos2, vec2,
@@ -8,7 +9,7 @@ use egui::{
 
 use super::icons::{self, Icon};
 use super::theme;
-use crate::player::format_time;
+use crate::player::{Chapter, format_time};
 
 /// Fills `rect` with black fading vertically from `top` to `bottom` alpha.
 pub fn vertical_gradient(p: &Painter, rect: Rect, top: f32, bottom: f32) {
@@ -52,17 +53,110 @@ pub fn icon_button(ui: &mut Ui, rect: Rect, icon: Icon, id: Id, tooltip: &str) -
     }
 }
 
-/// Windows-style caption button (minimize / maximize / close).
-pub fn caption_button(ui: &mut Ui, rect: Rect, icon: Icon, id: Id, danger: bool) -> Response {
+/// Glyphs for the title bar's window controls, drawn on a 12×12 grid at a
+/// 1.2px stroke, the way Vault's title bar draws them.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum WindowGlyph {
+    Pin { on: bool },
+    Minimize,
+    Maximize,
+    Restore,
+    ExitFullscreen,
+    Close,
+}
+
+/// A 44px, full-height window control: transparent at rest, `BG4` and
+/// brighter on hover. Close gets a stronger neutral rather than a colour.
+pub fn window_control(ui: &mut Ui, rect: Rect, glyph: WindowGlyph, id: Id, tooltip: &str) -> Response {
     let resp = ui.interact(rect, id, Sense::click());
-    let hover = ui.ctx().animate_bool_with_time(id.with("h"), resp.hovered(), 0.1);
+    let hover = ui.ctx().animate_bool_with_time(id.with("h"), resp.hovered(), 0.15);
     let p = ui.painter();
     if hover > 0.0 {
-        let bg = if danger { theme::CLOSE_RED } else { Color32::from_white_alpha(26) };
+        let bg = if glyph == WindowGlyph::Close { theme::COLOR5 } else { theme::BG4 };
         p.rect_filled(rect, 0.0, bg.gamma_multiply(hover));
     }
-    icons::paint(p, icon, Rect::from_center_size(rect.center(), vec2(18.0, 18.0)), theme::TEXT);
-    resp
+    let on = matches!(glyph, WindowGlyph::Pin { on: true });
+    let color = if on { theme::COLOR1 } else { lerp_color(theme::COLOR2, theme::COLOR1, hover) };
+    paint_window_glyph(p, glyph, Rect::from_center_size(rect.center(), vec2(12.0, 12.0)), color);
+    if tooltip.is_empty() { resp } else { resp.on_hover_text_at_pointer(tooltip) }
+}
+
+fn paint_window_glyph(p: &Painter, glyph: WindowGlyph, r: Rect, color: Color32) {
+    let at = |x: f32, y: f32| pos2(r.left() + x, r.top() + y);
+    let stroke = Stroke::new(1.2, color);
+    let line = |pts: Vec<Pos2>| p.add(Shape::Path(PathShape::line(pts, stroke)));
+    match glyph {
+        WindowGlyph::Minimize => {
+            line(vec![at(1.5, 6.0), at(10.5, 6.0)]);
+        }
+        WindowGlyph::Maximize => {
+            p.rect_stroke(Rect::from_min_max(at(1.4, 1.4), at(10.6, 10.6)), 1.6, stroke, StrokeKind::Middle);
+        }
+        WindowGlyph::Restore => {
+            p.rect_stroke(Rect::from_min_max(at(1.2, 3.6), at(8.4, 10.8)), 1.4, stroke, StrokeKind::Middle);
+            // The window behind: up, across and down, with rounded corners.
+            let mut pts = vec![at(3.9, 3.6)];
+            pts.extend(corner(at(5.3, 2.6), 1.4, 180.0));
+            pts.extend(corner(at(9.4, 2.6), 1.4, 270.0));
+            pts.extend(corner(at(9.4, 6.7), 1.4, 0.0));
+            pts.push(at(8.4, 8.1));
+            line(pts);
+        }
+        WindowGlyph::ExitFullscreen => {
+            line(vec![at(4.5, 1.5), at(4.5, 4.5), at(1.5, 4.5)]);
+            line(vec![at(7.5, 1.5), at(7.5, 4.5), at(10.5, 4.5)]);
+            line(vec![at(1.5, 7.5), at(4.5, 7.5), at(4.5, 10.5)]);
+            line(vec![at(10.5, 7.5), at(7.5, 7.5), at(7.5, 10.5)]);
+        }
+        WindowGlyph::Close => {
+            line(vec![at(2.2, 2.2), at(9.8, 9.8)]);
+            line(vec![at(9.8, 2.2), at(2.2, 9.8)]);
+        }
+        WindowGlyph::Pin { on } => {
+            // A thumbtack: cap, neck flaring into the head, and the needle.
+            if on {
+                p.rect_filled(Rect::from_min_max(at(4.9, 1.4), at(7.1, 4.9)), 0.0, color);
+                p.add(Shape::convex_polygon(vec![at(4.9, 4.8), at(3.0, 7.0), at(9.0, 7.0), at(7.1, 4.8)], color, Stroke::NONE));
+            }
+            line(vec![at(3.9, 1.4), at(8.1, 1.4)]);
+            p.add(Shape::Path(PathShape::closed_line(
+                vec![at(4.9, 1.4), at(4.9, 4.8), at(3.0, 7.0), at(9.0, 7.0), at(7.1, 4.8), at(7.1, 1.4)],
+                stroke,
+            )));
+            line(vec![at(6.0, 7.0), at(6.0, 10.6)]);
+        }
+    }
+}
+
+/// Points along a quarter circle of `radius` around `center`, starting at
+/// `from_deg` (0° = east, 90° = south) and turning clockwise on screen.
+fn corner(center: Pos2, radius: f32, from_deg: f32) -> Vec<Pos2> {
+    (0..=6)
+        .map(|i| {
+            let a = (from_deg + 15.0 * i as f32).to_radians();
+            center + vec2(a.cos(), a.sin()) * radius
+        })
+        .collect()
+}
+
+/// A borderless square button: `COLOR2` at rest, `BG3` and `COLOR1` on hover.
+/// Vault's player-row and title-bar lead buttons.
+pub fn flat_button(ui: &mut Ui, rect: Rect, icon: Icon, id: Id, tooltip: &str) -> Response {
+    let resp = ui.interact(rect, id, Sense::click());
+    let hover = ui.ctx().animate_bool_with_time(id.with("h"), resp.hovered(), 0.15);
+    let p = ui.painter();
+    if hover > 0.0 {
+        p.rect_filled(rect, 7.0, theme::BG3.gamma_multiply(hover));
+    }
+    let color = lerp_color(theme::COLOR2, theme::COLOR1, hover);
+    icons::paint(p, icon, Rect::from_center_size(rect.center(), vec2(16.0, 16.0)), color);
+    if tooltip.is_empty() { resp } else { resp.on_hover_text_at_pointer(tooltip) }
+}
+
+fn lerp_color(a: Color32, b: Color32, t: f32) -> Color32 {
+    let t = t.clamp(0.0, 1.0);
+    let mix = |x: u8, y: u8| (x as f32 + (y as f32 - x as f32) * t).round() as u8;
+    Color32::from_rgba_premultiplied(mix(a.r(), b.r()), mix(a.g(), b.g()), mix(a.b(), b.b()), mix(a.a(), b.a()))
 }
 
 /// Pill-shaped text label, used for timestamps above the seek bar and OSD.
@@ -70,85 +164,172 @@ pub fn chip(p: &Painter, anchor: Pos2, align: Align2, text: &str, font: FontId, 
     let galley = p.layout_no_wrap(text.to_string(), font, theme::TEXT.gamma_multiply(alpha));
     let size = galley.size() + vec2(20.0, 10.0);
     let rect = align.anchor_size(anchor, size);
-    p.add(Shadow { offset: [0, 2], blur: 12, spread: 0, color: Color32::from_black_alpha((90.0 * alpha) as u8) }.as_shape(rect, CornerRadius::same(255)));
-    p.add(RectShape::filled(rect, CornerRadius::same(255), theme::PANEL.gamma_multiply(alpha)));
+    let r = CornerRadius::same(7);
+    p.add(Shadow { offset: [0, 6], blur: 20, spread: 0, color: Color32::from_black_alpha((128.0 * alpha) as u8) }.as_shape(rect, r));
+    p.add(RectShape::filled(rect, r, theme::PANEL.gamma_multiply(alpha)));
+    p.rect_stroke(rect, r, Stroke::new(1.0, theme::BG5.gamma_multiply(alpha)), StrokeKind::Inside);
     p.galley(rect.center() - galley.size() / 2.0, galley, theme::TEXT);
     rect
 }
 
 pub enum SeekEvent {
     None,
-    /// Scrubbing in progress (cheap keyframe seek).
+    /// The pointer is held on the bar (cheap keyframe seek).
     Scrub(f64),
     /// Released; seek exactly here.
     Commit(f64),
 }
 
+/// Space kept clear either side of the head, and either side of a chapter cut.
+const HEAD_GAP: f32 = 12.0;
+const CHAPTER_GAP: f32 = 3.0;
+
+/// Vault's timeline: one track cut into pieces by chapters and by the head,
+/// played pieces shaded from `COLOR4` to `COLOR1` along the track, and a pill
+/// for a head that grows as you take hold of it.
 pub struct SeekBar<'a> {
     pub position: f64,
     pub duration: f64,
+    /// End of what's been buffered ahead of the position, in seconds.
     pub buffered: f64,
-    pub chapters: &'a [f64],
+    pub chapters: &'a [Chapter],
 }
 
 impl SeekBar<'_> {
+    /// `rect` is the 22px-tall control; the hit area extends 14px above it
+    /// into the empty gradient and 4px below, short of the buttons.
     pub fn show(self, ui: &mut Ui, rect: Rect, id: Id) -> SeekEvent {
-        let resp = ui.interact(rect, id, Sense::click_and_drag());
+        let hit = Rect::from_min_max(rect.min - vec2(0.0, 14.0), rect.max + vec2(0.0, 4.0));
+        let resp = ui.interact(hit, id, Sense::click_and_drag());
         let ctx = ui.ctx().clone();
-        let active = resp.hovered() || resp.dragged();
-        let grow = ctx.animate_bool_with_time(id.with("grow"), active, 0.12);
         let dur = self.duration.max(0.001);
+        let (left, width) = (rect.left(), rect.width().max(1.0));
+        let time_at = |x: f32| ((x - left) / width).clamp(0.0, 1.0) as f64 * dur;
+        let x_at = |t: f64| left + width * (t / dur).clamp(0.0, 1.0) as f32;
 
-        let track_h = 4.0 + 2.0 * grow;
-        let track = Rect::from_center_size(rect.center(), vec2(rect.width(), track_h));
-        let frac_at = |x: f32| ((x - track.left()) / track.width()).clamp(0.0, 1.0) as f64;
-        let x_at = |f: f64| track.left() + track.width() * (f / dur).clamp(0.0, 1.0) as f32;
+        let dragging = resp.is_pointer_button_down_on();
+        let hovering = resp.hovered() || dragging;
+        let pointer = if dragging || resp.clicked() || resp.drag_stopped() {
+            resp.interact_pointer_pos()
+        } else {
+            resp.hover_pos()
+        };
+        let pointer_t = pointer.map(|p| time_at(p.x));
+        // While held, the head goes where the pointer is.
+        let position = if dragging { pointer_t.unwrap_or(self.position) } else { self.position };
+        let split_x = x_at(position);
 
-        // While dragging, the knob follows the pointer instead of the player.
-        let drag_pos = resp.interact_pointer_pos().filter(|_| resp.dragged() || resp.drag_stopped() || resp.clicked());
-        let shown_pos = drag_pos.map(|p| frac_at(p.x) * dur).unwrap_or(self.position);
+        let travel = |key: &str, target: f32| ctx.animate_value_with_time(id.with(key), target, 0.2);
+        let rails_h = travel("rails", if hovering { 6.0 } else { 4.0 });
+        let (head_w, head_h) = match (dragging, hovering) {
+            (true, _) => (12.0, 22.0),
+            (false, true) => (6.0, 20.0),
+            _ => (4.0, 16.0),
+        };
+        let (head_w, head_h) = (travel("head-w", head_w), travel("head-h", head_h));
 
         let p = ui.painter();
-        let r = CornerRadius::same(255);
-        p.rect_filled(track, r, Color32::from_white_alpha(56));
-        if self.buffered > self.position {
-            let buf = Rect::from_min_max(track.min, pos2(x_at(self.buffered), track.max.y));
-            p.rect_filled(buf, r, Color32::from_white_alpha(70));
-        }
-        if let Some(hover) = resp.hover_pos() {
-            let hx = hover.x.clamp(track.left(), track.right());
-            p.rect_filled(Rect::from_min_max(track.min, pos2(hx, track.max.y)), r, Color32::from_white_alpha(40));
-        }
-        let px = x_at(shown_pos);
-        p.rect_filled(Rect::from_min_max(track.min, pos2(px, track.max.y)), r, theme::ACCENT);
+        let rails = Rect::from_center_size(rect.center(), vec2(width, rails_h));
+        // The soft shadow that keeps a pale bar readable over a pale frame.
+        p.add(Shadow { offset: [0, 0], blur: 12, spread: 0, color: Color32::from_black_alpha(0x40) }.as_shape(rails, CornerRadius::same(1)));
 
-        for &c in self.chapters {
-            if c > 0.5 {
-                let x = x_at(c);
-                p.rect_filled(Rect::from_center_size(pos2(x, track.center().y), vec2(2.0, track_h + 0.5)), 0.0, Color32::from_black_alpha(160));
+        let mut cuts: Vec<f64> = self.chapters.iter().map(|c| c.start).filter(|t| *t > 0.0 && *t < dur).collect();
+        cuts.sort_by(f64::total_cmp);
+        cuts.dedup();
+        let mut bounds = vec![0.0];
+        bounds.extend(cuts);
+        bounds.push(dur);
+
+        let loaded_x = x_at(self.buffered);
+        for pair in bounds.windows(2) {
+            let (from, to) = (pair[0], pair[1]);
+            let a = x_at(from) + if from > 0.0 { CHAPTER_GAP / 2.0 } else { 0.0 };
+            let b = x_at(to) - if to < dur { CHAPTER_GAP / 2.0 } else { 0.0 };
+
+            let played_end = b.min(split_x - HEAD_GAP);
+            if played_end > a {
+                horizontal_gradient(p, Rect::from_x_y_ranges(a..=played_end, rails.y_range()), fill_at(a, left, width), fill_at(played_end, left, width));
+            }
+            let ahead = a.max(split_x + HEAD_GAP);
+            if b > ahead {
+                p.rect_filled(Rect::from_x_y_ranges(ahead..=b, rails.y_range()), 1.0, theme::COLOR3);
+                // What's buffered: a hint, so barely there.
+                let loaded_end = b.min(loaded_x);
+                if self.buffered > position && loaded_end > ahead {
+                    p.rect_filled(Rect::from_x_y_ranges(ahead..=loaded_end, rails.y_range()), 1.0, theme::COLOR2.gamma_multiply(0.45));
+                }
             }
         }
 
-        let knob_r = 7.0 * grow;
-        if knob_r > 0.5 {
-            p.circle_filled(pos2(px, track.center().y), knob_r + 1.0, Color32::from_black_alpha(60));
-            p.circle_filled(pos2(px, track.center().y), knob_r, Color32::WHITE);
+        if let (Some(hp), false) = (resp.hover_pos(), dragging) {
+            let x = hp.x.clamp(left, left + width);
+            p.rect_filled(Rect::from_min_size(pos2(x, rails.top() - 2.0), vec2(1.0, 8.0)), 0.0, theme::COLOR2.gamma_multiply(0.7));
         }
 
-        if let Some(hover) = resp.hover_pos().or(drag_pos) {
-            let t = frac_at(hover.x) * dur;
-            let x = hover.x.clamp(rect.left() + 30.0, rect.right() - 30.0);
-            chip(ui.painter(), pos2(x, rect.top() - 6.0), Align2::CENTER_BOTTOM, &format_time(t), FontId::proportional(13.0), 1.0);
-        }
-        if active {
+        let head_x = left + 2.0 + (position / dur).clamp(0.0, 1.0) as f32 * (width - 4.0);
+        let head = Rect::from_center_size(pos2(head_x, rect.center().y), vec2(head_w, head_h));
+        let radius = CornerRadius::same((head_w / 2.0).min(5.0).round() as u8);
+        p.add(Shadow { offset: [0, 2], blur: 8, spread: 0, color: Color32::from_black_alpha(38) }.as_shape(head, radius));
+        p.rect_filled(head, radius, theme::COLOR1);
+
+        if let Some(t) = pointer_t.filter(|_| hovering) {
+            let chapter = self.chapters.iter().rev().find(|c| c.start <= t).map(|c| c.title.as_str()).filter(|s| !s.is_empty());
+            hover_card(p, rect, pointer.map_or(head_x, |p| p.x.clamp(left, left + width)), t, chapter);
             ctx.set_cursor_icon(CursorIcon::PointingHand);
         }
 
-        match drag_pos {
-            Some(p) if resp.drag_stopped() || resp.clicked() => SeekEvent::Commit(frac_at(p.x) * dur),
-            Some(p) if resp.dragged() => SeekEvent::Scrub(frac_at(p.x) * dur),
-            _ => SeekEvent::None,
+        if resp.clicked() || resp.drag_stopped() {
+            pointer_t.map_or(SeekEvent::None, SeekEvent::Commit)
+        } else if dragging {
+            pointer_t.map_or(SeekEvent::None, SeekEvent::Scrub)
+        } else {
+            SeekEvent::None
         }
+    }
+}
+
+/// The played fill's colour at `x`: `COLOR4` at the start of the track
+/// brightening to `COLOR1` at its end.
+fn fill_at(x: f32, left: f32, width: f32) -> Color32 {
+    lerp_color(theme::COLOR4, theme::COLOR1, (x - left) / width)
+}
+
+fn horizontal_gradient(p: &Painter, r: Rect, from: Color32, to: Color32) {
+    let mut mesh = Mesh::default();
+    mesh.colored_vertex(r.left_top(), from);
+    mesh.colored_vertex(r.right_top(), to);
+    mesh.colored_vertex(r.left_bottom(), from);
+    mesh.colored_vertex(r.right_bottom(), to);
+    mesh.add_triangle(0, 1, 2);
+    mesh.add_triangle(1, 2, 3);
+    p.add(Shape::mesh(mesh));
+}
+
+/// What's under the pointer, above the bar: the chapter's name over the
+/// time, centred on the pointer and kept inside the track's width.
+fn hover_card(p: &Painter, track: Rect, x: f32, t: f64, chapter: Option<&str>) {
+    let chip = |text: &str, color: Color32| {
+        let mut job = LayoutJob::simple_singleline(text.to_string(), FontId::proportional(11.0), color);
+        job.wrap = TextWrapping { max_width: 180.0, max_rows: 1, break_anywhere: true, overflow_character: Some('…') };
+        p.layout_job(job)
+    };
+    let mut chips = vec![chip(&format_time(t), theme::COLOR2)];
+    if let Some(name) = chapter {
+        chips.push(chip(name, theme::COLOR1));
+    }
+    let pad = vec2(8.0, 2.0);
+    let card_w = chips.iter().map(|g| g.size().x).fold(0.0, f32::max) + pad.x * 2.0;
+    let card_left = (x - card_w / 2.0).clamp(track.left(), (track.right() - card_w).max(track.left()));
+    let center_x = card_left + card_w / 2.0;
+
+    // Bottom chip sits 4px above the control; each further one 4px above that.
+    let mut bottom = track.top() - 4.0;
+    for galley in chips {
+        let size = galley.size() + pad * 2.0;
+        let r = Rect::from_min_max(pos2(center_x - size.x / 2.0, bottom - size.y), pos2(center_x + size.x / 2.0, bottom));
+        p.rect_filled(r, 7.0, theme::BG1.gamma_multiply(0.82));
+        p.galley(r.min + pad, galley, theme::COLOR2);
+        bottom = r.top() - 4.0;
     }
 }
 
@@ -197,15 +378,15 @@ pub fn menu_row(ui: &mut Ui, label: &str, detail: &str, checked: bool) -> Respon
     let (rect, resp) = ui.allocate_exact_size(vec2(ui.available_width(), 32.0), Sense::click());
     let p = ui.painter();
     if resp.hovered() {
-        p.rect_filled(rect, 8.0, Color32::from_white_alpha(20));
+        p.rect_filled(rect, 7.0, theme::BG4);
     }
     if checked {
-        icons::paint(p, Icon::Check, Rect::from_center_size(pos2(rect.left() + 16.0, rect.center().y), vec2(16.0, 16.0)), theme::ACCENT);
+        icons::paint(p, Icon::Check, Rect::from_center_size(pos2(rect.left() + 16.0, rect.center().y), vec2(15.0, 15.0)), theme::COLOR1);
     }
-    let font = if checked { FontId::new(14.0, theme::semibold()) } else { FontId::proportional(14.0) };
-    p.text(pos2(rect.left() + 32.0, rect.center().y), Align2::LEFT_CENTER, label, font, theme::TEXT);
+    let color = if checked || resp.hovered() { theme::COLOR1 } else { theme::COLOR2 };
+    p.text(pos2(rect.left() + 32.0, rect.center().y), Align2::LEFT_CENTER, label, FontId::proportional(13.5), color);
     if !detail.is_empty() {
-        p.text(pos2(rect.right() - 10.0, rect.center().y), Align2::RIGHT_CENTER, detail, FontId::proportional(12.0), theme::TEXT_DIM);
+        p.text(pos2(rect.right() - 10.0, rect.center().y), Align2::RIGHT_CENTER, detail, FontId::proportional(11.5), theme::COLOR3);
     }
     if resp.hovered() {
         ui.ctx().set_cursor_icon(CursorIcon::PointingHand);
@@ -215,29 +396,29 @@ pub fn menu_row(ui: &mut Ui, label: &str, detail: &str, checked: bool) -> Respon
 
 pub fn menu_header(ui: &mut Ui, text: &str) {
     let (rect, _) = ui.allocate_exact_size(vec2(ui.available_width(), 26.0), Sense::hover());
-    ui.painter().text(pos2(rect.left() + 10.0, rect.center().y), Align2::LEFT_CENTER, text.to_uppercase(), FontId::new(11.0, theme::semibold()), theme::TEXT_DIM);
+    ui.painter().text(pos2(rect.left() + 10.0, rect.center().y), Align2::LEFT_CENTER, text, FontId::proportional(12.0), theme::COLOR3);
 }
 
 pub fn menu_separator(ui: &mut Ui) {
     let (rect, _) = ui.allocate_exact_size(vec2(ui.available_width(), 9.0), Sense::hover());
-    ui.painter().line_segment([pos2(rect.left() + 8.0, rect.center().y), pos2(rect.right() - 8.0, rect.center().y)], Stroke::new(1.0, Color32::from_white_alpha(22)));
+    ui.painter().line_segment([pos2(rect.left() + 8.0, rect.center().y), pos2(rect.right() - 8.0, rect.center().y)], Stroke::new(1.0, theme::BG4));
 }
 
 /// "−  value  +" stepper row inside a menu. Returns -1, 0 or +1.
 pub fn menu_stepper(ui: &mut Ui, label: &str, value: &str) -> i32 {
     let (rect, _) = ui.allocate_exact_size(vec2(ui.available_width(), 34.0), Sense::hover());
     let p = ui.painter().clone();
-    p.text(pos2(rect.left() + 10.0, rect.center().y), Align2::LEFT_CENTER, label, FontId::proportional(14.0), theme::TEXT);
+    p.text(pos2(rect.left() + 10.0, rect.center().y), Align2::LEFT_CENTER, label, FontId::proportional(13.5), theme::COLOR2);
     let plus = Rect::from_center_size(pos2(rect.right() - 18.0, rect.center().y), vec2(28.0, 26.0));
     let minus = plus.translate(vec2(-82.0, 0.0));
-    p.text(pos2((plus.left() + minus.right()) / 2.0, rect.center().y), Align2::CENTER_CENTER, value, FontId::proportional(13.0), theme::TEXT_DIM);
+    p.text(pos2((plus.left() + minus.right()) / 2.0, rect.center().y), Align2::CENTER_CENTER, value, FontId::proportional(12.5), theme::COLOR2);
     let mut out = 0;
     for (r, sign, glyph) in [(minus, -1, "−"), (plus, 1, "+")] {
         let resp = ui.interact(r, Id::unique(("stepper", label, sign)), Sense::click());
-        let bg = if resp.hovered() { 34 } else { 18 };
-        p.rect_filled(r, 7.0, Color32::from_white_alpha(bg));
-        p.rect_stroke(r, 7.0, Stroke::new(1.0, Color32::from_white_alpha(14)), StrokeKind::Inside);
-        p.text(r.center(), Align2::CENTER_CENTER, glyph, FontId::proportional(16.0), theme::TEXT);
+        let (bg, fg) = if resp.hovered() { (theme::BG4, theme::COLOR1) } else { (theme::BG3, theme::COLOR2) };
+        p.rect_filled(r, 7.0, bg);
+        p.rect_stroke(r, 7.0, Stroke::new(1.0, theme::BG5), StrokeKind::Inside);
+        p.text(r.center(), Align2::CENTER_CENTER, glyph, FontId::proportional(15.0), fg);
         if resp.clicked() {
             out = sign;
         }
