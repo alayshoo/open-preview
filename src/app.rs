@@ -1009,8 +1009,6 @@ impl eframe::App for OpenPreviewApp {
             self.player.open_paths(&files);
         }
         self.player.process_events();
-        // Every frame, so an audio-only file or an empty player unlocks it.
-        platform::set_aspect_lock(self.player.aspect());
         if std::mem::take(&mut self.player.video_resized) {
             self.fit_pending = true;
         }

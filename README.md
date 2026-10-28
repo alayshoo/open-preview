@@ -23,9 +23,8 @@ That lets the controls sit on the picture instead of in a separate toolbar.
   cursor leaves the window, leaving just the video.
 - **Pin** (title bar, next to minimise, or `P`): keeps the window above other
   apps even when it isn't focused.
-- **Aspect-locked resizing** on Windows, so the window always fits the video
-  with no black bars. Drag anywhere to move the window and drag the edges to
-  resize it.
+- **Opens at the video's shape**, so there are no black bars to start with.
+  Drag anywhere to move the window and drag the edges to resize it freely.
 - **Responsive controls.** Less important buttons drop away as the window gets
   smaller.
 - **Subtitles move up** while the control bar is visible, so they never collide
@@ -207,7 +206,7 @@ and 7z.
 | `src/player.rs` | Mirrors mpv's properties (time, tracks, chapters…) and wraps its commands |
 | `src/app.rs` | Window behavior, title bar, auto-hide logic, pin, menus, input handling |
 | `src/ui/` | Vector icons, theme, custom widgets (seek bar, sliders, menus) |
-| `src/platform.rs` | Windows: rounded corners, aspect-locked resizing, default-player check |
+| `src/platform.rs` | Windows: rounded corners, monitor-scale drag fix, default-player check |
 | `src/thumbnail.rs` | `--thumbnail` mode: one frame to stdout via libmpv's software renderer |
 | `src/hdr.rs` | HDR output: the PQ-to-scRGB compositor; `src/hdr/win.rs` presents it through DXGI |
 | `src/formats.rs` | File types for the open dialog and drag and drop; the installer registers the same |
