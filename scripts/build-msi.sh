@@ -15,7 +15,7 @@ dll=${1:-}
 if [[ -z "$dll" ]]; then
     # Latest baseline x86_64 build from the official SourceForge mirror.
     rss=$(curl -fsSL --retry 3 "https://sourceforge.net/projects/mpv-player-windows/rss?path=/libmpv")
-    name=$(grep -oE 'mpv-dev-x86_64-[0-9]{8}-git-[0-9a-f]+\.7z' <<<"$rss" | head -1)
+    name=$(grep -oE 'mpv-dev-x86_64-[0-9]{8}-git-[0-9a-f]+\.7z' <<<"$rss" | sed -n 1p)
     dl=target/libmpv/$name
     mkdir -p target/libmpv
     [[ -f "$dl" ]] || curl -fsSL --retry 3 -o "$dl" "https://sourceforge.net/projects/mpv-player-windows/files/libmpv/$name/download"
