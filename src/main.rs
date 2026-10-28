@@ -3,6 +3,7 @@
 
 mod app;
 mod formats;
+mod hdr;
 mod icon;
 mod mpv;
 mod platform;

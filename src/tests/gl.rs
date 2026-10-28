@@ -61,9 +61,10 @@ fn egl() -> Result<&'static Egl, String> {
     .map_err(Clone::clone)
 }
 
-/// Renders the frame 0.5 s in, with the app's options, into a "window" of
-/// `w`×`h`; returns top-down RGBA.
-pub fn render(path: &str, (w, h): (usize, usize), extra: &[(&'static str, &str)]) -> Result<Vec<u8>, String> {
+type GetProc = unsafe extern "C" fn(*const c_char) -> *mut c_void;
+
+/// Runs `f` with a fresh OpenGL context current.
+fn with_context<T>(f: impl FnOnce(&glow::Context, GetProc) -> Result<T, String>) -> Result<T, String> {
     // llvmpipe is threaded already; contexts one at a time keep memory down.
     static ONE_AT_A_TIME: Mutex<()> = Mutex::new(());
     let _turn = ONE_AT_A_TIME.lock().unwrap_or_else(|e| e.into_inner());
@@ -82,26 +83,23 @@ pub fn render(path: &str, (w, h): (usize, usize), extra: &[(&'static str, &str)]
         if (egl.make_current)(display, std::ptr::null_mut(), std::ptr::null_mut(), ctx) == 0 {
             return Err("eglMakeCurrent failed".into());
         }
-        let result = render_current(egl, path, (w, h), extra);
+        let gpa = egl.get_proc_address;
+        let gl = glow::Context::from_loader_function(|name| {
+            let name = CString::new(name).unwrap();
+            gpa(name.as_ptr()) as *const c_void
+        });
+        let result = f(&gl, gpa);
         (egl.make_current)(display, std::ptr::null_mut(), std::ptr::null_mut(), std::ptr::null_mut());
         (egl.destroy_context)(display, ctx);
         result
     }
 }
 
-unsafe fn render_current(
-    egl: &'static Egl,
-    path: &str,
-    (w, h): (usize, usize),
-    extra: &[(&'static str, &str)],
-) -> Result<Vec<u8>, String> {
-    let gpa = egl.get_proc_address;
-    let gl = unsafe {
-        glow::Context::from_loader_function(|name| {
-            let name = CString::new(name).unwrap();
-            gpa(name.as_ptr()) as *const c_void
-        })
-    };
+/// Plays `path` from 0.5 s with the app's options, calling `draw` as the app
+/// paints: every frame, whether or not mpv has something new. Returns 0.4 s
+/// into playback: right after a seek, a stream without an index (TS) can show
+/// a few grey frames until the decoder has its references, in VLC too.
+fn play(gpa: GetProc, path: &str, extra: &[(&'static str, &str)], mut draw: impl FnMut(&RenderContext)) -> Result<(), String> {
     let mut overrides = vec![
         ("start", "0.5"),
         ("hwdec", "no"),
@@ -119,16 +117,11 @@ unsafe fn render_current(
     let rc = RenderContext::new(&mpv, get_proc, || {})?;
     mpv.command(&["loadfile", path])?;
 
-    let target = unsafe { Target::new(&gl, w as i32, h as i32)? };
     let deadline = Instant::now() + Duration::from_secs(20);
     let mut shown = None;
     // Only for explaining a failure: FFmpeg's messages reach whichever mpv
     // instance in the process came first, so they may be another test's.
     let mut errors = Vec::new();
-    // As the app paints: every frame, whether or not mpv has something new.
-    // Looked at 0.4 s into playback: right after a seek, a stream without an
-    // index (TS) can show a few grey frames until the decoder has its
-    // references, in VLC too.
     while shown.is_none_or(|t: Instant| t.elapsed() < Duration::from_millis(400)) {
         while let Some(ev) = mpv.poll_event() {
             match ev {
@@ -144,21 +137,29 @@ unsafe fn render_current(
             }
         }
         rc.wants_frame();
-        rc.render(target.fbo.0.get() as i32, w as i32, h as i32, false);
+        draw(&rc);
         if Instant::now() > deadline {
             return Err(format!("no frame ({})", errors.join("; ")));
         }
         std::thread::sleep(Duration::from_millis(4));
     }
-    let mut pixels = vec![0u8; w * h * 4];
-    unsafe {
+    Ok(())
+}
+
+/// Renders the frame 0.5 s in, with the app's options, into a "window" of
+/// `w`×`h`; returns top-down RGBA.
+pub fn render(path: &str, (w, h): (usize, usize), extra: &[(&'static str, &str)]) -> Result<Vec<u8>, String> {
+    with_context(|gl, gpa| unsafe {
+        let target = Target::new(gl, w as i32, h as i32)?;
+        let played = play(gpa, path, extra, |rc| rc.render(target.fbo.0.get() as i32, w as i32, h as i32, false, 0));
+        let mut pixels = vec![0u8; w * h * 4];
         gl.bind_framebuffer(glow::FRAMEBUFFER, Some(target.fbo));
         gl.read_pixels(0, 0, w as i32, h as i32, glow::RGBA, glow::UNSIGNED_BYTE, glow::PixelPackData::Slice(Some(&mut pixels)));
-        drop(rc);
-        target.delete(&gl);
-    }
-    // Without FLIP_Y, mpv draws the top row first.
-    Ok(pixels)
+        target.delete(gl);
+        played?;
+        // Without FLIP_Y, mpv draws the top row first.
+        Ok(pixels)
+    })
 }
 
 /// An RGBA8 framebuffer, as egui's default one is.
@@ -234,3 +235,85 @@ pub fn check(case: &Case, path: &str, failures: &mut Vec<String>) {
     }
 }
 
+
+/// HDR output, short of the screen: mpv renders the HDR10 clip as PQ into the
+/// compositor, a strip of white UI goes over it, and the scRGB that comes out
+/// must hold the clip's real brightness (the pattern's white is at 203 nits)
+/// and put the UI at the SDR white level.
+#[test]
+fn hdr_compositor() {
+    if let Err(e) = super::libmpv_loads() {
+        return super::unavailable(&format!("libmpv: {e}"));
+    }
+    if let Err(e) = egl() {
+        return super::unavailable(&format!("OpenGL: {e}"));
+    }
+    let case = super::cases::find("hdr10-hevc.mkv").unwrap();
+    let path = match super::fixtures::get(case) {
+        Ok(p) => p,
+        Err(e) => return super::unavailable(&e),
+    };
+    let (w, h) = (320usize, 180usize);
+    let sdr_white = 240.0;
+    let display = crate::hdr::Display { peak_nits: 1000.0, sdr_white_nits: sdr_white };
+    let target: Vec<(&'static str, String)> = crate::hdr::mpv_target(Some(display)).into();
+    let extra: Vec<(&'static str, &str)> = target.iter().map(|(k, v)| (*k, v.as_str())).collect();
+
+    let scrgb = with_context(|gl, gpa| unsafe {
+        let comp = crate::hdr::Compositor::new(gl, [w as u32, h as u32])?;
+        let video = &comp.video;
+        let played = play(gpa, &path.to_string_lossy(), &extra, |rc| {
+            rc.render(video.fbo.0.get() as i32, w as i32, h as i32, true, video.format as i32)
+        });
+        // The UI: transparent, but for an opaque white strip along the bottom
+        // (GL's first rows), as egui would leave it.
+        gl.bind_framebuffer(glow::FRAMEBUFFER, Some(comp.ui.fbo));
+        gl.viewport(0, 0, w as i32, h as i32);
+        gl.clear_color(0.0, 0.0, 0.0, 0.0);
+        gl.clear(glow::COLOR_BUFFER_BIT);
+        gl.enable(glow::SCISSOR_TEST);
+        gl.scissor(0, 0, w as i32, 10);
+        gl.clear_color(1.0, 1.0, 1.0, 1.0);
+        gl.clear(glow::COLOR_BUFFER_BIT);
+        gl.disable(glow::SCISSOR_TEST);
+        let out = crate::hdr::Target::new(gl, [w as u32, h as u32], glow::RGBA32F)?;
+        comp.composite(gl, out.fbo, sdr_white, false);
+        let mut px = vec![0f32; w * h * 4];
+        let bytes = std::slice::from_raw_parts_mut(px.as_mut_ptr() as *mut u8, px.len() * 4);
+        gl.read_pixels(0, 0, w as i32, h as i32, glow::RGBA, glow::FLOAT, glow::PixelPackData::Slice(Some(bytes)));
+        out.destroy(gl);
+        comp.destroy(gl);
+        played?;
+        Ok(px)
+    });
+    let scrgb = match scrgb {
+        Ok(px) => px,
+        Err(e) => panic!("HDR render failed: {e}"),
+    };
+    // GL rows run bottom-up; the quadrants' centres as on screen.
+    let at = |fx: f64, fy_from_top: f64| -> [f32; 3] {
+        let (x, y) = ((fx * w as f64) as usize, ((1.0 - fy_from_top) * h as f64) as usize);
+        let i = (y * w + x) * 4;
+        [scrgb[i], scrgb[i + 1], scrgb[i + 2]]
+    };
+    let linear = |c: u8| {
+        let c = c as f64 / 255.0;
+        if c <= 0.04045 { c / 12.92 } else { ((c + 0.055) / 1.055).powf(2.4) }
+    };
+    let mut failures = Vec::new();
+    for (n, (fx, fy)) in [(0.25, 0.25), (0.75, 0.25), (0.25, 0.75), (0.75, 0.75)].into_iter().enumerate() {
+        let want = super::PATTERN[n].map(|c| (linear(c) * 203.0 / 80.0) as f32);
+        let got = at(fx, fy);
+        // 8-bit pattern, 10-bit video, chroma subsampling: a few percent, and
+        // a little absolute slack for the near-black channels.
+        if got.iter().zip(want).any(|(g, w)| (g - w).abs() > 0.06 * w + 0.03) {
+            failures.push(format!("quadrant {n}: scRGB {got:?}, want {want:?}"));
+        }
+    }
+    let ui = at(0.5, 0.99);
+    let want = sdr_white / 80.0;
+    if ui.iter().any(|c| (c - want).abs() > 0.01) {
+        failures.push(format!("UI white at scRGB {ui:?}, want {want}"));
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}

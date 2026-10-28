@@ -11,6 +11,7 @@ use egui_glow::glow::{self, HasContext};
 use serde::{Deserialize, Serialize};
 
 use crate::formats::{self, is_subtitle};
+use crate::hdr;
 use crate::mpv::{Mpv, ProcAddress, RenderContext};
 use crate::platform;
 use crate::player::{Player, TrackKind, format_time};
@@ -56,6 +57,13 @@ enum Menu {
 struct Video {
     ctx: Option<RenderContext>,
     error: Option<String>,
+    /// Made the first time HDR video plays on an HDR screen.
+    hdr: Option<hdr::Output>,
+    /// Why HDR output couldn't be had; it isn't tried again.
+    hdr_error: Option<String>,
+    /// This frame goes out as HDR, to this screen. `None`: the window's own
+    /// surface, as SDR.
+    hdr_frame: Option<hdr::Display>,
 }
 
 pub struct OpenPreviewApp {
@@ -92,6 +100,8 @@ pub struct OpenPreviewApp {
     window_title: String,
     /// Files from the command line, opened once the video output exists.
     pending_files: Vec<String>,
+    /// The HDR screen mpv was last told to render for; see `update_hdr`.
+    hdr_target: Option<hdr::Display>,
 }
 
 impl OpenPreviewApp {
@@ -133,6 +143,7 @@ impl OpenPreviewApp {
             fit_pending: false,
             wheel_accum: 0.0,
             window_title: String::new(),
+            hdr_target: None,
             pending_files: files,
         }
     }
@@ -419,7 +430,14 @@ impl OpenPreviewApp {
                     gl.bind_texture(glow::TEXTURE_2D, None);
                 }
                 rc.wants_frame();
-                rc.render(fbo, w as i32, h as i32, fbo == 0);
+                match v.hdr.as_ref().filter(|_| v.hdr_frame.is_some()) {
+                    // As PQ, the right way up for compositing like the window.
+                    Some(out) => {
+                        let (target, format) = out.video_target();
+                        rc.render(target, w as i32, h as i32, true, format);
+                    }
+                    None => rc.render(fbo, w as i32, h as i32, fbo == 0, 0),
+                }
                 // mpv leaves its own GL state behind; put back what egui relies on.
                 unsafe {
                     let target = std::num::NonZeroU32::new(fbo as u32).map(glow::NativeFramebuffer);
@@ -435,6 +453,88 @@ impl OpenPreviewApp {
             }
         });
         ui.painter().add(egui::PaintCallback { rect, callback: Arc::new(callback) });
+    }
+
+    /// HDR video on an HDR screen goes out as HDR (see `hdr`); everything
+    /// else, SDR video on any screen included, through the window as before.
+    fn update_hdr(&mut self) {
+        let mut v = self.video.lock().unwrap();
+        let usable = self.player.hdr && self.player.has_video() && v.ctx.is_some() && v.hdr_error.is_none();
+        let want = if usable { hdr::wanted() } else { None };
+        if want != self.hdr_target {
+            for (name, value) in hdr::mpv_target(want) {
+                self.player.mpv.set_str(name, &value);
+            }
+            self.hdr_target = want;
+        }
+        v.hdr_frame = want;
+    }
+
+    /// Painted before anything else: on HDR frames, sends egui's drawing to
+    /// the HDR compositor instead of the window.
+    fn begin_frame(&self, ui: &Ui, rect: Rect) {
+        let video = self.video.clone();
+        let get_proc = self.get_proc.clone();
+        let callback = egui_glow::CallbackFn::new(move |info, painter| {
+            let mut guard = video.lock().unwrap();
+            let v = &mut *guard;
+            if v.hdr_frame.is_none() {
+                return;
+            }
+            let gl = painter.gl();
+            let size = info.screen_size_px;
+            // Minimised: nothing to show, and nothing wrong either.
+            if size.contains(&0) {
+                v.hdr_frame = None;
+                return;
+            }
+            if v.hdr.is_none() {
+                let made = match &get_proc {
+                    Some(gp) => hdr::Output::new(gl, gp.as_ref(), size),
+                    None => Err("no OpenGL loader".into()),
+                };
+                match made {
+                    Ok(out) => v.hdr = Some(out),
+                    Err(e) => {
+                        eprintln!("HDR output unavailable, staying SDR: {e}");
+                        v.hdr_error = Some(e);
+                        v.hdr_frame = None;
+                        return;
+                    }
+                }
+            }
+            if let Some(out) = &mut v.hdr
+                && let Err(e) = unsafe { out.begin(gl, size) }
+            {
+                eprintln!("HDR output failed, back to SDR: {e}");
+                v.hdr_error = Some(e);
+                v.hdr_frame = None;
+                unsafe { gl.bind_framebuffer(glow::FRAMEBUFFER, None) };
+            }
+        });
+        ui.painter().add(egui::PaintCallback { rect, callback: Arc::new(callback) });
+    }
+
+    /// Painted after everything else: on HDR frames, composites the video and
+    /// the UI and presents them; otherwise makes sure the window's own
+    /// surface is what shows.
+    fn end_frame(&self, ctx: &egui::Context, rect: Rect) {
+        let video = self.video.clone();
+        let callback = egui_glow::CallbackFn::new(move |_info, painter| {
+            let mut guard = video.lock().unwrap();
+            let v = &mut *guard;
+            let Some(out) = &mut v.hdr else { return };
+            let Some(display) = v.hdr_frame else {
+                out.hide();
+                return;
+            };
+            if let Err(e) = unsafe { out.present(painter.gl(), display) } {
+                eprintln!("HDR output failed, back to SDR: {e}");
+                out.hide();
+                v.hdr_error = Some(e);
+            }
+        });
+        ctx.layer_painter(egui::LayerId::debug()).add(egui::PaintCallback { rect, callback: Arc::new(callback) });
     }
 
     fn paint_empty_state(&self, ui: &Ui, screen: Rect, hovered: bool) {
@@ -958,6 +1058,8 @@ impl eframe::App for OpenPreviewApp {
 
         // Video first, so everything else draws over it. This also creates the
         // render context on the first frame, before any file is loaded.
+        self.update_hdr();
+        self.begin_frame(root, screen);
         self.paint_video(root, screen);
         if !self.pending_files.is_empty() {
             ctx.request_repaint();
@@ -1068,16 +1170,21 @@ impl eframe::App for OpenPreviewApp {
         if has_media && !self.player.paused && !self.player.has_video() {
             ctx.request_repaint_after(std::time::Duration::from_millis(250));
         }
+        self.end_frame(&ctx, screen);
     }
 
     fn save(&mut self, storage: &mut dyn eframe::Storage) {
         eframe::set_value(storage, eframe::APP_KEY, &self.settings);
     }
 
-    fn on_exit(&mut self, _gl: Option<&glow::Context>) {
+    fn on_exit(&mut self, gl: Option<&glow::Context>) {
         self.player.save_position();
         // The render context must go before the GL context and the mpv core.
-        self.video.lock().unwrap().ctx = None;
+        let mut v = self.video.lock().unwrap();
+        v.ctx = None;
+        if let (Some(out), Some(gl)) = (v.hdr.take(), gl) {
+            out.destroy(gl);
+        }
     }
 
     fn clear_color(&self, _visuals: &egui::Visuals) -> [f32; 4] {

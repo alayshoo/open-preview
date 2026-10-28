@@ -187,6 +187,10 @@ fn probe(case: &cases::Case, path: &str, failures: &mut Vec<String>) {
         if case.gamma.is_none() && matches!(gamma.as_str(), "pq" | "hlg") {
             failures.push(format!("unexpected HDR transfer {gamma}"));
         }
+        // What decides HDR output on an HDR screen.
+        if player.hdr != case.gamma.is_some() {
+            failures.push(format!("Player says HDR: {}, want {}", player.hdr, case.gamma.is_some()));
+        }
         // Interlaced video is deinterlaced, as in VLC; progressive isn't.
         if let Some(active) = mpv.get_bool("deinterlace-active")
             && active != case.interlaced

@@ -42,9 +42,10 @@ That lets the controls sit on the picture instead of in a separate toolbar.
   ASF, MXF, 3GP, RealMedia and HLS. DVD and Blu-ray folders and ISO images,
   tracker music (MOD, XM, S3M, IT) and M3U/PLS/CUE playlists open too.
   Hardware decoding is on (`hwdec=auto-safe`).
-- HDR10 and HLG (HEVC, AV1, VP9) are tone-mapped to the screen, thumbnails
-  included. Interlaced video (TV, DVD) is deinterlaced automatically, and
-  rotation flags, non-square pixels and full-range video are honoured.
+- HDR10 and HLG (HEVC, AV1, VP9) play as HDR on an HDR screen (see
+  [HDR](#hdr)), and are tone-mapped on SDR screens and in thumbnails.
+  Interlaced video (TV, DVD) is deinterlaced automatically, and rotation flags,
+  non-square pixels and full-range video are honoured.
 - Subtitles: picks up embedded and side-by-side subtitle files automatically.
   You can also drag in or browse for `.srt/.ass/.vtt/...` files, and change the
   subtitle size and delay from the subtitles menu.
@@ -124,6 +125,30 @@ cached before the switch may linger; Disk Cleanup → Thumbnails clears them.
 `cargo run --example probe -p open-preview-thumbs` (on Windows, after
 installing) fetches a thumbnail through COM the way Explorer does, for testing.
 
+## HDR
+
+When Windows' **Use HDR** is on for the screen the window is on, HDR video
+plays as HDR. It's tone-mapped only for highlights brighter than the screen
+can show (its peak, as Windows reports it). The controls stay at Windows'
+**SDR content brightness**, like any other app. SDR video, and anything on an
+SDR screen, takes the usual path. Moving the window between screens, or
+turning HDR on or off, switches over within a second.
+
+egui draws through OpenGL into an 8-bit window, so HDR frames take another
+route (`src/hdr.rs`). mpv renders the video as absolute PQ / BT.2020 into a
+float texture, and egui draws the controls into a texture of their own. A
+shader then decodes the video to nits and blends the controls over it the way
+egui would over SDR video, writing scRGB, the format Windows composes HDR
+desktops in. A Direct3D 11 FP16 swap chain on a child window over the client
+area shows the result. OpenGL draws into it through `WGL_NV_DX_interop2`, which
+current NVIDIA, AMD and Intel drivers have (mpv relies on it for D3D11 hardware
+decoding with OpenGL). The child window passes every click and drop through
+to the window under it.
+
+If any of that isn't available, the reason is logged and the app stays SDR.
+`OPEN_PREVIEW_HDR=off` turns HDR output off, and `OPEN_PREVIEW_HDR=force` uses
+it on any screen, for trying it out.
+
 ## Linux
 
 Install `libmpv-dev`, or just `libmpv2`, then run `cargo run -- video.mp4`.
@@ -159,7 +184,9 @@ options. The tests check the tracks and codecs `Player` finds, the duration,
 channel count and display size, and that a full decode logs no errors. They
 also check the colours of a known test pattern: in the thumbnail, and on Linux
 in the OpenGL path the window draws with, where HDR is tone-mapped and
-subtitles are drawn.
+subtitles are drawn. On that path, HDR output is checked too: an HDR10 clip
+rendered as PQ and composited with the controls must come out as scRGB at the
+clip's real brightness.
 
 Without libmpv or ffmpeg these tests are skipped with a note.
 `OPEN_PREVIEW_MEDIA_TESTS=require` turns that into a failure.
@@ -182,6 +209,7 @@ and 7z.
 | `src/ui/` | Vector icons, theme, custom widgets (seek bar, sliders, menus) |
 | `src/platform.rs` | Windows: rounded corners, aspect-locked resizing, default-player check |
 | `src/thumbnail.rs` | `--thumbnail` mode: one frame to stdout via libmpv's software renderer |
+| `src/hdr.rs` | HDR output: the PQ-to-scRGB compositor; `src/hdr/win.rs` presents it through DXGI |
 | `src/formats.rs` | File types for the open dialog and drag and drop; the installer registers the same |
 | `src/tests/` | Media regression tests: the clip matrix, ffmpeg fixtures, a headless OpenGL harness |
 | `thumbnailer/` | Explorer thumbnail handler (COM DLL) that calls `--thumbnail` |
@@ -194,8 +222,8 @@ and 7z.
 - Video goes through OpenGL. On Windows that means mpv's `dxva2`/`nvdec`
   interop, or `*-copy` hardware decoding. Rendering straight through D3D11 would
   need mpv's (still experimental) D3D11 render API or a wgpu backend.
-- HDR is shown tone-mapped to SDR, also on an HDR screen: egui draws to an
-  8-bit surface.
+- HDR output needs an OpenGL driver with `WGL_NV_DX_interop2`. Without it
+  (some virtual machines, Remote Desktop), HDR video is tone-mapped to SDR.
 - Dolby Vision profile 5 (common in streaming rips) plays with wrong, green
   and purple colours. Reshaping it needs mpv's `gpu-next` renderer, which
   libmpv's render API doesn't use. VLC 3 has the same problem. Profiles 7 and 8

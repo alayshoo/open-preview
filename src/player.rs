@@ -48,6 +48,7 @@ const P_CHAPTERS: u64 = 17;
 const P_SUB_SCALE: u64 = 18;
 const P_SUB_DELAY: u64 = 19;
 const P_ROTATE: u64 = 20;
+const P_GAMMA: u64 = 21;
 
 pub struct Player {
     pub mpv: Arc<Mpv>,
@@ -62,6 +63,8 @@ pub struct Player {
     pub idle: bool,
     pub loading: bool,
     pub buffering: bool,
+    /// The video is HDR (PQ or HLG), so worth showing as HDR on an HDR screen.
+    pub hdr: bool,
     /// Displayed video size, rotation applied.
     pub video_size: Option<(i64, i64)>,
     /// Raw `dwidth`/`dheight` (0 while unknown) and the rotation mpv applies on top.
@@ -101,6 +104,7 @@ impl Player {
             (P_SUB_SCALE, "sub-scale", D),
             (P_SUB_DELAY, "sub-delay", D),
             (P_ROTATE, "video-out-params/rotate", I),
+            (P_GAMMA, "video-params/gamma", S),
         ] {
             mpv.observe(id, name, fmt);
         }
@@ -117,6 +121,7 @@ impl Player {
             idle: true,
             loading: false,
             buffering: false,
+            hdr: false,
             video_size: None,
             dsize: (0, 0),
             rotate: 0,
@@ -228,6 +233,7 @@ impl Player {
             P_PL_COUNT => self.playlist_count = i(&v).unwrap_or(0),
             P_PL_POS => self.playlist_pos = i(&v).unwrap_or(-1),
             P_BUFFERING => self.buffering = b(&v),
+            P_GAMMA => self.hdr = matches!(&v, PropValue::Str(g) if g == "pq" || g == "hlg"),
             P_CHAPTERS => self.reload_chapters(),
             P_SUB_SCALE => self.sub_scale = f(&v).unwrap_or(1.0),
             P_SUB_DELAY => self.sub_delay = f(&v).unwrap_or(0.0),

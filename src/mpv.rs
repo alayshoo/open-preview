@@ -529,8 +529,10 @@ impl RenderContext {
         unsafe { (api().render_update)(self.ctx) & RENDER_UPDATE_FRAME != 0 }
     }
 
-    pub fn render(&self, fbo: i32, width: i32, height: i32, flip_y: bool) {
-        let mut fbo = OpenGlFbo { fbo, w: width, h: height, internal_format: 0 };
+    /// Draws into framebuffer `fbo`. `internal_format` is its GL format, or
+    /// 0 for 8-bit; mpv dithers to that depth.
+    pub fn render(&self, fbo: i32, width: i32, height: i32, flip_y: bool, internal_format: i32) {
+        let mut fbo = OpenGlFbo { fbo, w: width, h: height, internal_format };
         let mut flip: c_int = flip_y as c_int;
         // Never stall the UI thread waiting for a frame's display time.
         let mut block: c_int = 0;
