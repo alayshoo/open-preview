@@ -1,12 +1,10 @@
 //! Playback state mirrored from mpv's observed properties, plus the commands
 //! the UI issues.
 
-use std::path::Path;
 use std::sync::Arc;
 
+use crate::formats::is_subtitle;
 use crate::mpv::{self, Event, Mpv, PropValue};
-
-const SUBTITLE_EXTS: &[&str] = &["srt", "ass", "ssa", "vtt", "sub", "sup", "idx", "smi", "lrc"];
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum TrackKind {
@@ -379,13 +377,6 @@ impl Player {
     pub fn set_sub_delay(&self, v: f64) {
         self.mpv.set_double("sub-delay", v);
     }
-}
-
-pub fn is_subtitle(path: &str) -> bool {
-    Path::new(path)
-        .extension()
-        .and_then(|e| e.to_str())
-        .is_some_and(|e| SUBTITLE_EXTS.contains(&e.to_ascii_lowercase().as_str()))
 }
 
 /// How a codec is usually written, rather than mpv's lowercase id.

@@ -10,9 +10,10 @@ use egui::{
 use egui_glow::glow::{self, HasContext};
 use serde::{Deserialize, Serialize};
 
+use crate::formats::{self, is_subtitle};
 use crate::mpv::{Mpv, ProcAddress, RenderContext};
 use crate::platform;
-use crate::player::{Player, TrackKind, format_time, is_subtitle};
+use crate::player::{Player, TrackKind, format_time};
 use crate::ui::icons::{self, Icon};
 use crate::ui::theme;
 use crate::ui::widgets::{self, SeekBar, SeekEvent, WindowGlyph};
@@ -193,13 +194,7 @@ impl OpenPreviewApp {
     fn open_dialog(&mut self) {
         let files = rfd::FileDialog::new()
             .set_title("Open media")
-            .add_filter(
-                "Media",
-                &[
-                    "mkv", "mp4", "m4v", "avi", "mov", "webm", "wmv", "flv", "ts", "m2ts", "mts", "mpg", "mpeg",
-                    "ogv", "3gp", "mp3", "flac", "m4a", "aac", "ogg", "opus", "wav", "wma", "m3u", "m3u8",
-                ],
-            )
+            .add_filter("Media", &formats::media())
             .add_filter("All files", &["*"])
             .pick_files();
         if let Some(files) = files {
@@ -211,7 +206,7 @@ impl OpenPreviewApp {
     fn add_subtitle_dialog(&mut self, ctx: &egui::Context) {
         let file = rfd::FileDialog::new()
             .set_title("Add subtitles")
-            .add_filter("Subtitles", &["srt", "ass", "ssa", "vtt", "sub", "sup", "idx", "smi"])
+            .add_filter("Subtitles", formats::SUBTITLE)
             .pick_file();
         if let Some(f) = file {
             self.player.mpv.cmd(&["sub-add", &f.to_string_lossy(), "select"]);
