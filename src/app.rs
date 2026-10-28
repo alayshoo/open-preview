@@ -75,7 +75,7 @@ pub struct OpenPreviewApp {
     /// keeps it above other apps when it loses focus.
     pinned: bool,
     show_help: bool,
-    /// Last `sub-pos` sent to mpv; subtitles rise above the control bar.
+    /// Last `sub-pos` sent to mpv; subtitles ease up above the control bar.
     sub_pos: f64,
     /// Whether we're the default video player (Windows only); re-checked when
     /// the window regains focus, e.g. on the way back from Settings.
@@ -164,15 +164,20 @@ impl OpenPreviewApp {
         let info = ctx.input(|i| i.viewport().clone());
         let Some(inner) = info.inner_rect else { return };
         let monitor = info.monitor_size.unwrap_or(vec2(1920.0, 1080.0));
-        let mut w = inner.width();
-        let mut h = w / aspect;
-        let max_h = monitor.y * 0.88;
-        if h > max_h {
-            h = max_h;
-            w = h * aspect;
+        // Keep the window's area, so 16:9 and 9:16 swap shapes instead of a
+        // portrait video squeezing into the old width.
+        let area = inner.width() * inner.height();
+        let mut size = vec2((area * aspect).sqrt(), (area / aspect).sqrt());
+        let max = monitor * 0.88;
+        size *= (max.x / size.x).min(max.y / size.y).min(1.0);
+        if (size - inner.size()).abs().max_elem() <= 1.0 {
+            return;
         }
-        if (h - inner.height()).abs() > 1.0 || (w - inner.width()).abs() > 1.0 {
-            ctx.send_viewport_cmd(ViewportCommand::InnerSize(vec2(w, h)));
+        ctx.send_viewport_cmd(ViewportCommand::InnerSize(size));
+        // Grow or shrink about the window's centre, so it stays on screen.
+        if let Some(outer) = info.outer_rect {
+            let frame = outer.size() - inner.size();
+            ctx.send_viewport_cmd(ViewportCommand::OuterPosition(outer.center() - (size + frame) / 2.0));
         }
     }
 
@@ -994,7 +999,14 @@ impl eframe::App for OpenPreviewApp {
             || self.scrubbing.is_some()
             || (hover.is_some() && (idle < HIDE_AFTER || over_controls || self.player.paused));
         let alpha = ctx.animate_bool_with_time(Id::unique("chrome"), show, if show { 0.15 } else { 0.4 });
-        let sub_pos = if show && has_media { (100.0 - 9000.0 / screen.height() as f64).clamp(50.0, 100.0).round() } else { 100.0 };
+        // Subtitles ease up clear of the timeline while it's shown.
+        let sub_lift = ctx.animate_bool_with_time_and_easing(
+            Id::unique("sub-lift"),
+            show && has_media,
+            if show { 0.2 } else { 0.4 },
+            egui::emath::easing::cubic_out,
+        ) as f64;
+        let sub_pos = ((100.0 - sub_lift * (4500.0 / screen.height() as f64).min(25.0)) * 10.0).round() / 10.0;
         if sub_pos != self.sub_pos {
             self.sub_pos = sub_pos;
             self.player.mpv.set_double("sub-pos", sub_pos);

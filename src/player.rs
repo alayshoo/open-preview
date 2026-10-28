@@ -49,6 +49,7 @@ const P_BUFFERING: u64 = 16;
 const P_CHAPTERS: u64 = 17;
 const P_SUB_SCALE: u64 = 18;
 const P_SUB_DELAY: u64 = 19;
+const P_ROTATE: u64 = 20;
 
 pub struct Player {
     pub mpv: Arc<Mpv>,
@@ -63,7 +64,11 @@ pub struct Player {
     pub idle: bool,
     pub loading: bool,
     pub buffering: bool,
+    /// Displayed video size, rotation applied.
     pub video_size: Option<(i64, i64)>,
+    /// Raw `dwidth`/`dheight` (0 while unknown) and the rotation mpv applies on top.
+    dsize: (i64, i64),
+    rotate: i64,
     pub playlist_count: i64,
     pub playlist_pos: i64,
     pub tracks: Vec<Track>,
@@ -97,6 +102,7 @@ impl Player {
             (P_CHAPTERS, "chapter-list", N),
             (P_SUB_SCALE, "sub-scale", D),
             (P_SUB_DELAY, "sub-delay", D),
+            (P_ROTATE, "video-out-params/rotate", I),
         ] {
             mpv.observe(id, name, fmt);
         }
@@ -114,6 +120,8 @@ impl Player {
             loading: false,
             buffering: false,
             video_size: None,
+            dsize: (0, 0),
+            rotate: 0,
             playlist_count: 0,
             playlist_pos: -1,
             tracks: Vec::new(),
@@ -135,6 +143,24 @@ impl Player {
 
     pub fn aspect(&self) -> Option<f32> {
         self.video_size.filter(|(w, h)| *w > 0 && *h > 0).map(|(w, h)| w as f32 / h as f32)
+    }
+
+    /// Recomputes `video_size` from `dsize` and `rotate`. `dwidth`/`dheight`
+    /// ignore rotation, so a phone video stored as 1920×1080 with a 90° flag
+    /// would otherwise look landscape.
+    fn update_video_size(&mut self) {
+        let (mut w, mut h) = self.dsize;
+        if self.rotate.rem_euclid(180) == 90 {
+            std::mem::swap(&mut w, &mut h);
+        }
+        let new = (w > 0 && h > 0).then_some((w, h));
+        if new.is_some() && new != self.video_size {
+            self.video_resized = true;
+        }
+        // Keep the old size while one half of the pair is still unknown.
+        if new.is_some() || self.dsize == (0, 0) {
+            self.video_size = new;
+        }
     }
 
     /// Drains mpv's event queue. Returns true if anything changed.
@@ -189,18 +215,17 @@ impl Player {
             P_SPEED => self.speed = f(&v).unwrap_or(1.0),
             P_EOF => self.eof = b(&v),
             P_IDLE => self.idle = b(&v),
-            P_DWIDTH | P_DHEIGHT => {
-                let (mut w, mut h) = self.video_size.unwrap_or((0, 0));
-                let val = i(&v).unwrap_or(0);
-                if id == P_DWIDTH { w = val } else { h = val }
-                let new = (w > 0 && h > 0).then_some((w, h));
-                if new != self.video_size && new.is_some() {
-                    self.video_resized = true;
-                }
-                // Keep the old size while one half of the pair is still unknown.
-                if new.is_some() || matches!(v, PropValue::None) {
-                    self.video_size = new;
-                }
+            P_DWIDTH => {
+                self.dsize.0 = i(&v).unwrap_or(0);
+                self.update_video_size();
+            }
+            P_DHEIGHT => {
+                self.dsize.1 = i(&v).unwrap_or(0);
+                self.update_video_size();
+            }
+            P_ROTATE => {
+                self.rotate = i(&v).unwrap_or(0);
+                self.update_video_size();
             }
             P_PL_COUNT => self.playlist_count = i(&v).unwrap_or(0),
             P_PL_POS => self.playlist_pos = i(&v).unwrap_or(-1),
