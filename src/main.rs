@@ -30,7 +30,7 @@ fn mpv_options(watch_later: &str) -> Vec<(&'static str, String)> {
         ("volume-max", "150".into()),
         ("audio-client-name", "Open Preview".into()),
         ("sub-auto", "fuzzy".into()),
-        ("sub-font-size", "46".into()),
+        ("sub-font-size", app::SUB_FONT_SIZE.to_string()),
         ("sub-border-size", "2.6".into()),
         ("sub-shadow-offset", "1".into()),
         ("save-position-on-quit", "yes".into()),

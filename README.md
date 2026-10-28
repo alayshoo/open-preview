@@ -25,10 +25,11 @@ That lets the controls sit on the picture instead of in a separate toolbar.
   apps even when it isn't focused.
 - **Opens at the video's shape**, so there are no black bars to start with.
   Drag anywhere to move the window and drag the edges to resize it freely.
-- **Responsive controls.** Less important buttons drop away as the window gets
-  smaller.
+- **Responsive controls.** As the window narrows, buttons drop away in order
+  of importance, only once there's no room for them. The subtitles, audio track,
+  speed and shortcuts buttons move under a More (⋯) button rather than vanish.
 - **Subtitles move up** while the control bar is visible, so they never collide
-  with it.
+  with it. They shrink with the window, but only down to a readable size.
 - Windows 11 rounded corners and a dark frame.
 
 ## Features

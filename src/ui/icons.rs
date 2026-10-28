@@ -22,6 +22,7 @@ pub enum Icon {
     FullscreenExit,
     Check,
     Keyboard,
+    More,
 }
 
 /// Paints `icon` centered in `rect`. Icons are designed on a 24×24 grid.
@@ -52,8 +53,16 @@ pub fn paint(p: &Painter, icon: Icon, rect: Rect, color: Color32) {
             p.rect_filled(Rect::from_min_max(at(14.0, 4.5), at(17.5, 19.5)), 1.2 * s, color);
         }
         Icon::Replay => {
-            line(arc(12.0, 12.5, 7.0, -PI * 0.55, PI * 1.3));
-            fill(vec![at(9.0, 1.8), at(13.2, 5.6), at(8.0, 7.6)]);
+            // A circle turning back on itself, open at the upper left, with
+            // the arrowhead on the arc's end pointing the way it travels.
+            let (r, end) = (7.5, -PI * 0.6);
+            line(arc(12.0, 12.5, r, PI * 1.08, end));
+            let tip = (12.0 + r * end.cos(), 12.5 + r * end.sin());
+            let arm = |t: f32| {
+                let v = Vec2::angled(end + PI / 2.0 + t) * 4.2;
+                at(tip.0 + v.x, tip.1 + v.y)
+            };
+            line(vec![arm(0.8), at(tip.0, tip.1), arm(-0.8)]);
         }
         Icon::Back10 | Icon::Forward10 => {
             // Vault's SkipIcon: an arch over the numeral, the arrowhead on the
@@ -133,6 +142,11 @@ pub fn paint(p: &Painter, icon: Icon, rect: Rect, color: Color32) {
                 p.circle_filled(at(x, 10.0), 0.9 * s, color);
             }
             line(vec![at(7.5, 14.5), at(16.5, 14.5)]);
+        }
+        Icon::More => {
+            for x in [5.0, 12.0, 19.0] {
+                p.circle_filled(at(x, 12.0), 1.9 * s, color);
+            }
         }
     }
 }
