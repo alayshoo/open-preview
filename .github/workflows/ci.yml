@@ -24,11 +24,9 @@ jobs:
     name: Lint
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: x86_64-pc-windows-gnu
-          components: clippy
+      - uses: actions/checkout@v5
+      # Installs the toolchain, components and targets pinned in rust-toolchain.toml.
+      - run: rustup toolchain install || rustup show
       # windres, for embedding the icon when checking the Windows target.
       - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends mingw-w64
       - uses: Swatinem/rust-cache@v2
@@ -45,10 +43,8 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: x86_64-pc-windows-gnu
+      - uses: actions/checkout@v5
+      - run: rustup toolchain install || rustup show
       - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends mingw-w64 wixl msitools p7zip-full
       - uses: Swatinem/rust-cache@v2
       - name: Check the tag matches Cargo.toml
@@ -61,7 +57,7 @@ jobs:
           fi
       - name: Build the MSI
         run: scripts/build-msi.sh
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: open-preview-installer
           path: dist/*.msi

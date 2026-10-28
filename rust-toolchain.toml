@@ -1,0 +1,6 @@
+# Pinned so CI and local builds lint with the same clippy; bump deliberately.
+[toolchain]
+channel = "1.99.1"
+components = ["clippy", "rustfmt"]
+targets = ["x86_64-pc-windows-gnu"]
+profile = "minimal"

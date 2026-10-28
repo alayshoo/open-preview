@@ -97,7 +97,7 @@ fn render(path: &str, size: u32) -> Result<(u32, u32, Vec<u8>), String> {
 
     let mut pixels = Vec::with_capacity(w as usize * h as usize * 4);
     for row in frame.chunks_exact(stride) {
-        for px in row[..w as usize * 4].chunks_exact(4) {
+        for px in row[..w as usize * 4].as_chunks::<4>().0 {
             // bgr0 → BGRA; the fourth byte is unspecified, so make it opaque.
             pixels.extend_from_slice(&[px[0], px[1], px[2], 255]);
         }
