@@ -21,6 +21,13 @@
              Comments="Modern video player built on libmpv" />
 
     <MajorUpgrade DowngradeErrorMessage="A newer version of Open Preview is already installed." />
+    <!-- Copy every file, whatever is on disk. Costing runs before the old
+         version is removed, and wixl leaves the File table's versions empty, so
+         Windows would keep the old open-preview.exe and libmpv-2.dll (versioned
+         beats unversioned), then delete them along with the old version: the
+         update would "succeed" with neither installed. All files are private
+         to INSTALLDIR, so forcing them never downgrades anything shared. -->
+    <Property Id="REINSTALLMODE" Value="amus" />
     <Media Id="1" Cabinet="open-preview.cab" EmbedCab="yes" />
 
     <Icon Id="AppIcon" SourceFile="$(var.BinDir)/open-preview.ico" />
